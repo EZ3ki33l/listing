@@ -1,36 +1,141 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🎉 Gestionnaire d'Événements Familial
 
-## Getting Started
+Une application personnelle et familiale pour gérer vos événements spéciaux et vos listes d'achats avec des comptes à rebours personnalisés.
 
-First, run the development server:
+## ✨ Fonctionnalités
 
+### 🎯 **Gestion des événements personnels**
+- **4 types d'événements** avec designs uniques :
+  - 🎂 **Anniversaires** (rose) - Célébrez les moments spéciaux
+  - 🎄 **Noël** (rouge-vert) - La magie des fêtes de fin d'année
+  - 💝 **Saint-Valentin** (rouge-rose) - L'amour est dans l'air
+  - 💕 **Anniversaires de rencontre** (bleu-violet) - Célébrez vos relations
+
+### ⏰ **Compte à rebours intelligent**
+- Affichage permanent du compte à rebours sur la page d'accueil
+- Calcul automatique des jours restants pour chaque événement
+- Gestion intelligente des événements passés (calcule la prochaine occurrence)
+
+### 📋 **Listes d'achats organisées**
+- Liste spécifique pour chaque type d'événement
+- Création automatique des listes lors de la création d'événements
+- Filtrage par type d'événement et par catégorie
+- Gestion des photos, descriptions et prix
+
+### 🎨 **Interface personnalisée**
+- Design moderne et responsive avec Tailwind CSS
+- Couleurs et emojis spécifiques à chaque type d'événement
+- Navigation intuitive entre les différentes sections
+
+## 🚀 Installation
+
+### Prérequis
+- Node.js 18+ 
+- PostgreSQL
+- npm ou yarn
+
+### Étapes d'installation
+
+1. **Cloner le projet**
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <votre-repo>
+cd listing
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. **Installer les dépendances**
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. **Configuration de la base de données**
+```bash
+# Créer un fichier .env à la racine
+cp .env.example .env
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+# Configurer vos variables d'environnement
+NEXT_PUBLIC_ADMIN_USERNAME=votre_username
+NEXT_PUBLIC_ADMIN_PASSWORD=votre_password
+DATABASE_URL="postgresql://user:password@localhost:5432/listing"
+```
 
-## Learn More
+4. **Initialiser la base de données**
+```bash
+npx prisma generate
+npx prisma db push
+```
 
-To learn more about Next.js, take a look at the following resources:
+5. **Lancer l'application**
+```bash
+npm run dev
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+L'application sera accessible sur `http://localhost:3000`
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 📱 Utilisation
 
-## Deploy on Vercel
+### 🏠 **Page d'accueil**
+- Compte à rebours principal de l'événement le plus proche
+- 4 cadres d'événements avec accès direct aux listes spécifiques
+- Navigation vers l'administration et toutes les listes
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### ⚙️ **Administration** (`/admin`)
+- **Événements personnels** : Créer vos 4 événements avec dates spécifiques
+- **Gestion des événements** : Créer, modifier et gérer vos événements
+- **Gestion des listes** : Suivre la progression de vos achats
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 📋 **Listes d'achats** (`/liste`)
+- Vue d'ensemble de tous les articles
+- Filtrage par type d'événement (`/liste?type=anniversaire`)
+- Filtrage par catégorie
+- Recherche d'articles
+- Gestion du statut d'achat
+
+## 🗄️ Structure de la base de données
+
+### Modèles principaux
+- **Event** : Événements avec type, nom, date cible
+- **ShoppingList** : Listes d'achats liées aux événements
+- **ShoppingItem** : Articles avec photos, descriptions, prix
+- **Category** : Catégories d'articles
+- **EventAdmin** : Administrateurs des événements
+
+## 🎨 Personnalisation
+
+### Ajouter un nouveau type d'événement
+1. Modifier `EVENT_TYPES` dans `src/app/page.tsx`
+2. Ajouter la logique dans `getEventTypeInfo()` des composants
+3. Mettre à jour les actions serveur si nécessaire
+
+### Modifier les couleurs et emojis
+- Éditer les propriétés `color` et `emoji` dans `EVENT_TYPES`
+- Ajuster les classes Tailwind CSS selon vos préférences
+
+## 🔧 Technologies utilisées
+
+- **Frontend** : Next.js 15, React 18, TypeScript
+- **Styling** : Tailwind CSS
+- **Base de données** : PostgreSQL avec Prisma ORM
+- **Icons** : Lucide React
+- **Dates** : date-fns
+
+## 📝 Configuration des événements personnels
+
+L'application est pré-configurée pour vos événements spécifiques :
+
+- **Anniversaire de Mimoutte** : 28 septembre
+- **Saint-Valentin** : 14 février
+- **Noël** : 25 décembre  
+- **Anniversaire de notre rencontre** : 4 novembre
+
+## 🤝 Support
+
+Cette application est conçue pour un usage familial et personnel. Elle vous permet de :
+- Garder une trace de vos événements importants
+- Organiser vos listes d'achats par occasion
+- Avoir un compte à rebours visuel et motivant
+- Gérer facilement vos préparatifs d'événements
+
+---
+
+**Développé avec ❤️ pour votre famille**
+# listing
