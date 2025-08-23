@@ -13,6 +13,21 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique // Pseudo unique de l'utilisateur
+  password  String   // Hash du mot de passe (bcrypt)
+  email     String?  @unique // Email optionnel
+  isAdmin   Boolean  @default(false) // Indique si l'utilisateur est administrateur
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  ownedEvents     Event[]           // Événements créés par l'utilisateur
+  sharedEvents    EventShare[]      // Événements partagés avec cet utilisateur
+  notifications  Notification[]     // Notifications reçues par l'utilisateur
+}
+
 model Event {
   id          String   @id @default(cuid())
   name        String   // Nom de l'événement (ex: "Anniversaire de Mimoutte")
@@ -20,58 +35,84 @@ model Event {
   targetDate  DateTime? // Date cible de l'événement (optionnelle)
   hasTargetDate Boolean @default(true) // Indique si l'événement a une date cible
   isPrivate   Boolean  @default(false) // Indique si l'événement est privé (nécessite mot de passe)
+  isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  isActive    Boolean  @default(true)
   
-  // Relation directe avec les articles
-  items ShoppingItem[]
+  // Relations
+  ownerId     String   // ID de l'utilisateur propriétaire
+  owner       User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  items       ShoppingItem[]
+  shares      EventShare[] // Partages avec d'autres utilisateurs
 }
 
-model Admin {
-  id        String @id @default(cuid())
-  username  String @unique // Pseudo unique de l'administrateur
-  password  String // Hash du mot de passe
+model EventShare {
+  id        String   @id @default(cuid())
+  eventId   String
+  userId    String
+  canEdit   Boolean  @default(false) // L'utilisateur peut-il modifier la liste ?
   createdAt DateTime @default(now())
+  
+  // Relations
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([eventId, userId]) // Un utilisateur ne peut partager qu'une fois avec un autre
 }
 
 model ShoppingItem {
-  id             String @id @default(cuid())
-  eventId        String // Directement lié à l'événement
-  name           String // Nom de l'article
-  description    String? // Description détaillée
-  price          Float? // Prix estimé
-  purchaseUrl    String? // Lien d'achat (ex: Amazon, etc.)
-  isPurchased    Boolean @default(false) // Statut de l'article
-  purchasedBy    String? // Qui a acheté l'article
-  purchasedAt    DateTime?
-  categoryId     String? // ID de la catégorie
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
-  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  photos ShoppingItemPhoto[] // Photos en carrousel
-  category Category? @relation(fields: [categoryId], references: [id])
-}
-
-model ShoppingItemPhoto {
-  id             String @id @default(cuid())
-  shoppingItemId String
-  imageUrl       String // URL de l'image
-  altText        String? // Texte alternatif pour l'accessibilité
-  order          Int // Ordre dans le carrousel
-  createdAt      DateTime @default(now())
+  id          String   @id @default(cuid())
+  name        String   // Nom de l'article
+  description String?  // Description optionnelle
+  price       Float?   // Prix optionnel
+  isPurchased Boolean  @default(false) // Statut d'achat
+  purchasedAt DateTime? // Date d'achat
+  purchasedBy String?   // Nom de la personne qui a acheté
+  purchaseUrl String?   // Lien d'achat optionnel
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
   
-  shoppingItem ShoppingItem @relation(fields: [shoppingItemId], references: [id], onDelete: Cascade)
-  
-  @@unique([shoppingItemId, order])
+  // Relations
+  eventId     String
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  categoryId  String?
+  category    Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  photos      ShoppingItemPhoto[]
 }
 
 model Category {
-  id          String @id @default(cuid())
-  name        String @unique // Nom de la catégorie
-  color       String @default("#3B82F6") // Couleur de la catégorie (hex)
-  icon        String? // Icône de la catégorie
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  items       ShoppingItem[]
+  id        String   @id @default(cuid())
+  name      String   @unique // Nom de la catégorie
+  color     String   @default("#3B82F6") // Couleur de la catégorie
+  icon      String?  // Icône de la catégorie
+  createdAt DateTime @default(now())
+  
+  // Relations
+  items     ShoppingItem[]
+}
+
+model ShoppingItemPhoto {
+  id        String   @id @default(cuid())
+  imageUrl  String   // URL de l'image
+  altText   String?  // Texte alternatif
+  order     Int      @default(0) // Ordre d'affichage
+  createdAt DateTime @default(now())
+  
+  // Relations
+  itemId    String
+  item      ShoppingItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String   // ID de l'utilisateur qui reçoit la notification
+  type      String   // Type de notification (ex: 'EVENT_LEAVE', 'EVENT_SHARE', etc.)
+  title     String   // Titre de la notification
+  message   String   // Message de la notification
+  data      Json?    // Données supplémentaires (optionnel)
+  isRead    Boolean  @default(false) // La notification a-t-elle été lue ?
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

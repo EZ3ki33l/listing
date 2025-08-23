@@ -3,7 +3,10 @@
 import { useState, useEffect } from 'react';
 import EventCountdown from '@/components/EventCountdown';
 import Link from 'next/link';
-import { getAllActiveEvents } from '@/lib/actions';
+import { getAllActiveEvents, leaveSharedEvent } from '@/lib/actions';
+import NotificationToast from '@/components/NotificationToast';
+import ConfirmModal from '@/components/ConfirmModal';
+import UserMenu from '@/components/UserMenu';
 
 interface Event {
   id: string;
@@ -13,21 +16,55 @@ interface Event {
   hasTargetDate: boolean;
   isPrivate: boolean;
   isActive: boolean;
+  owner: {
+    id: string;
+    username: string;
+  };
 }
 
 export default function HomePage() {
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info' | 'warning', title: string, message: string } | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean, eventId: string | null, eventName: string }>({
+    isOpen: false,
+    eventId: null,
+    eventName: ''
+  });
 
   useEffect(() => {
-    // Charger les listes d'achats
-    loadEvents();
+    // Vérifier si l'utilisateur est connecté
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        setUserId(user.id);
+      } catch (error) {
+        console.error('Erreur lors de la lecture des données utilisateur:', error);
+      }
+    }
+    // Marquer l'initialisation comme terminée
+    setIsInitializing(false);
   }, []);
+
+  useEffect(() => {
+    // Attendre que l'initialisation soit terminée
+    if (!isInitializing) {
+      // Charger les listes d'achats seulement si l'utilisateur est connecté
+      if (userId !== null) {
+        loadEvents();
+      } else {
+        setIsLoading(false);
+      }
+    }
+  }, [userId, isInitializing]);
 
   const loadEvents = async () => {
     try {
-      // Essayer de récupérer tous les événements actifs
-      const result = await getAllActiveEvents();
+      // Récupérer les événements de l'utilisateur connecté
+      const result = await getAllActiveEvents(userId || undefined);
       
       if (result.success && result.events) {
         setEvents(result.events);
@@ -38,6 +75,56 @@ export default function HomePage() {
       setIsLoading(false);
     }
   };
+
+  const handleLeaveEvent = (eventId: string, eventName: string) => {
+    setConfirmModal({
+      isOpen: true,
+      eventId,
+      eventName
+    });
+  };
+
+  const confirmLeaveEvent = async () => {
+    if (!confirmModal.eventId) return;
+
+    try {
+      const result = await leaveSharedEvent(confirmModal.eventId, userId!);
+      
+      if (result.success) {
+        setNotification({
+          type: 'success',
+          title: 'Retrait réussi',
+          message: `${result.message}\n\nL'événement "${result.eventName}" de ${result.ownerUsername} a été retiré de vos événements partagés.`
+        });
+        // Recharger les événements
+        await loadEvents();
+      } else {
+        setNotification({
+          type: 'error',
+          title: 'Erreur',
+          message: `Erreur: ${result.error}`
+        });
+      }
+    } catch (error) {
+      console.error('Erreur lors du retrait de l\'événement:', error);
+      setNotification({
+        type: 'error',
+        title: 'Erreur',
+        message: 'Erreur lors du retrait de l\'événement'
+      });
+    }
+
+    // Fermer la modal
+    setConfirmModal({ isOpen: false, eventId: null, eventName: '' });
+  };
+
+  const cancelLeaveEvent = () => {
+    setConfirmModal({ isOpen: false, eventId: null, eventName: '' });
+  };
+
+  // Séparer les événements par type (possédés vs partagés)
+  const ownedEvents = events.filter(event => event.owner.id === userId);
+  const sharedEvents = events.filter(event => event.owner.id !== userId);
 
   // Calculer les jours restants pour chaque événement
   const eventsWithCountdown = events.map(event => {
@@ -126,14 +213,25 @@ export default function HomePage() {
 
   // Filtrer et trier les événements
   const eventsWithDate = eventsWithCountdown.filter(event => event.daysUntil !== null);
-  const eventsWithoutDate = eventsWithCountdown.filter(event => event.daysUntil === null);
   
   // Trier par nombre de jours restants
   const sortedEvents = eventsWithDate.sort((a, b) => (a.daysUntil || 0) - (b.daysUntil || 0));
 
+  // Afficher un loader pendant l'initialisation pour éviter le clipping
+  if (isInitializing) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-lg text-gray-600">Initialisation...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600 mx-auto"></div>
           <p className="mt-4 text-lg text-gray-600">Chargement des événements...</p>
@@ -143,8 +241,42 @@ export default function HomePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50 flex items-center justify-center py-8">
-      <div className="container mx-auto px-4">
+    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50">
+      {/* Header avec menu utilisateur */}
+      {userId && (
+        <header className="bg-white/30 backdrop-blur-sm border-b border-gray-200/20">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex justify-end items-center py-4">
+              {/* Menu utilisateur compact */}
+              <UserMenu userId={userId} />
+            </div>
+          </div>
+        </header>
+      )}
+
+      <div className="container mx-auto px-4 py-8">
+        {/* Affichage des notifications personnalisées */}
+        {notification && (
+          <NotificationToast
+            type={notification.type}
+            title={notification.title}
+            message={notification.message}
+            onClose={() => setNotification(null)}
+          />
+        )}
+
+        {/* Modal de confirmation pour se retirer d'un événement */}
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          title="Se retirer de l'événement"
+          message={`Êtes-vous sûr de vouloir vous retirer de l'événement "${confirmModal.eventName}" ?\n\nVous ne pourrez plus accéder à cette liste d'achats partagée.`}
+          confirmText="Oui, me retirer"
+          cancelText="Annuler"
+          type="warning"
+          onConfirm={confirmLeaveEvent}
+          onCancel={cancelLeaveEvent}
+        />
+
         <h1 className="text-5xl font-bold text-center text-gray-800 mb-4">
           🎉 Gestionnaire de Listes d&apos;Achats Familial
         </h1>
@@ -153,55 +285,169 @@ export default function HomePage() {
         </p>
 
         {/* Affichage de tous les comptes à rebours des listes d'achats */}
-        {sortedEvents.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-16 items-stretch">
-            {sortedEvents.map((event) => (
-              <div key={event.id} className="h-full flex flex-col transform hover:scale-105 transition-all duration-300">
-                <div className="flex-1">
-                  <EventCountdown 
-                    event={event}
-                    showTitle={true}
-                    compact={true}
-                  />
-                </div>
-                <div className="text-center mt-4 flex-shrink-0">
-                  <Link
-                    href={`/liste?event=${event.id}`}
-                    className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
-                  >
-                    🛍️ Voir la liste
-                  </Link>
+        {/* Affichage des événements avec compte à rebours (seulement si connecté) */}
+        {userId && events.length > 0 && (
+          <>
+            {/* Mes événements */}
+            {ownedEvents.length > 0 && (
+              <div className="mb-16">
+                <h2 className="text-3xl font-bold text-center text-gray-800 mb-8">
+                  🏠 Mes événements
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 items-stretch">
+                  {ownedEvents
+                    .filter(event => event.hasTargetDate && event.targetDate)
+                    .map((event) => {
+                      const eventWithCountdown = eventsWithCountdown.find(e => e.id === event.id);
+                      if (!eventWithCountdown || eventWithCountdown.daysUntil === null) return null;
+                      
+                      return (
+                        <div key={event.id} className="h-full flex flex-col transform hover:scale-105 transition-all duration-300">
+                          <div className="flex-1">
+                            <EventCountdown 
+                              event={event}
+                              showTitle={true}
+                              compact={true}
+                            />
+                          </div>
+                          <div className="text-center mt-4 flex-shrink-0">
+                            <Link
+                              href={`/liste?event=${event.id}`}
+                              className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
+                            >
+                              🛍️ Voir la liste
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
               </div>
-            ))}
-          </div>
-        ) : null}
+            )}
 
-        {/* Affichage des événements sans date */}
-        {eventsWithoutDate.length > 0 && (
-          <div className="mb-16">
-            <h2 className="text-3xl font-bold text-center text-gray-800 mb-8">
-              📋 Listes d&apos;achats sans date
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 items-stretch">
-              {eventsWithoutDate.map((event) => (
-                <div key={event.id} className="h-full flex flex-col transform hover:scale-105 transition-all duration-300">
-                  <div className="flex-1">
-                    <EventCountdown 
-                      event={event}
-                      showTitle={true}
-                      compact={true}
-                    />
-                  </div>
+            {/* Événements partagés */}
+            {sharedEvents.length > 0 && (
+              <div className="mb-16">
+                <h2 className="text-3xl font-bold text-center text-gray-800 mb-8">
+                  🤝 Événements partagés avec moi
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 items-stretch">
+                  {sharedEvents
+                    .filter(event => event.hasTargetDate && event.targetDate)
+                    .map((event) => {
+                      const eventWithCountdown = eventsWithCountdown.find(e => e.id === event.id);
+                      if (!eventWithCountdown || eventWithCountdown.daysUntil === null) return null;
+                      
+                      return (
+                        <div key={event.id} className="h-full flex flex-col transform hover:scale-105 transition-all duration-300">
+                          <div className="flex-1">
+                            <EventCountdown 
+                              event={event}
+                              showTitle={true}
+                              compact={true}
+                            />
+                          </div>
+                          <div className="text-center mt-4 flex-shrink-0 space-y-2">
+                            <Link
+                              href={`/liste?event=${event.id}`}
+                              className="inline-block bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-6 py-3 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium w-full"
+                            >
+                              🛍️ Voir la liste
+                            </Link>
+                            <button
+                              onClick={() => handleLeaveEvent(event.id, event.name)}
+                              className="inline-block bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium w-full text-sm"
+                            >
+                              🚪 Se retirer
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
                 </div>
-              ))}
-            </div>
-          </div>
+              </div>
+            )}
+          </>
         )}
 
-        {/* Message quand aucun événement n'est configuré */}
-        {sortedEvents.length === 0 && eventsWithoutDate.length === 0 && (
-          <div className="text-center mb-16">
+        {/* Affichage des événements sans date (seulement si connecté) */}
+        {userId && events.length > 0 && (
+          <>
+            {/* Mes événements sans date */}
+            {ownedEvents.filter(event => !event.hasTargetDate || !event.targetDate).length > 0 && (
+              <div className="mb-16">
+                <h2 className="text-3xl font-bold text-center text-gray-800 mb-8">
+                  📋 Mes listes d&apos;achats sans date
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 items-stretch">
+                  {ownedEvents
+                    .filter(event => !event.hasTargetDate || !event.targetDate)
+                    .map((event) => (
+                      <div key={event.id} className="h-full flex flex-col transform hover:scale-105 transition-all duration-300">
+                        <div className="flex-1">
+                          <EventCountdown 
+                            event={event}
+                            showTitle={true}
+                            compact={true}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* Événements partagés sans date */}
+            {sharedEvents.filter(event => !event.hasTargetDate || !event.targetDate).length > 0 && (
+              <div className="mb-16">
+                <h2 className="text-3xl font-bold text-center text-gray-800 mb-8">
+                  📋 Listes d&apos;achats partagées sans date
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 items-stretch">
+                  {sharedEvents
+                    .filter(event => !event.hasTargetDate || !event.targetDate)
+                    .map((event) => (
+                      <div key={event.id} className="h-full flex flex-col transform hover:scale-105 transition-all duration-300">
+                        <div className="flex-1">
+                          <EventCountdown 
+                            event={event}
+                            showTitle={true}
+                            compact={true}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Message quand aucun événement n'est configuré ou utilisateur non connecté */}
+        {!userId ? (
+          // Utilisateur non connecté - Hauteur minimale pour éviter le clipping
+          <div className="text-center mb-16 min-h-[400px] flex items-center justify-center">
+            <div className="bg-white rounded-3xl shadow-xl p-8 max-w-md mx-auto border border-gray-100">
+              <div className="text-6xl mb-4">🔐</div>
+              <p className="text-lg text-gray-600 mb-6">
+                Connectez-vous pour voir vos listes d&apos;achats
+              </p>
+              <p className="text-sm text-gray-500 mb-6">
+                Créez un compte ou connectez-vous pour organiser vos événements
+              </p>
+              <div className="space-y-4">
+                <Link
+                  href="/user"
+                  className="inline-block bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-6 py-3 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
+                >
+                  🔑 Se connecter
+                </Link>
+              </div>
+            </div>
+          </div>
+        ) : (ownedEvents.length === 0 && sharedEvents.length === 0) ? (
+          // Utilisateur connecté mais sans événements - Hauteur minimale pour éviter le clipping
+          <div className="text-center mb-16 min-h-[400px] flex items-center justify-center">
             <div className="bg-white rounded-3xl shadow-xl p-8 max-w-md mx-auto border border-gray-100">
               <div className="text-6xl mb-4">🎁</div>
               <p className="text-lg text-gray-600 mb-6">
@@ -209,25 +455,17 @@ export default function HomePage() {
               </p>
               <div className="space-y-4">
                 <Link
-                  href="/admin"
+                  href="/user"
                   className="inline-block bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-6 py-3 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
                 >
-                  ⚙️ Configurer les listes d&apos;achats
+                  ➕ Créer ma première liste
                 </Link>
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
-        {/* Lien vers l'administration */}
-        <div className="text-center">
-          <Link
-            href="/admin"
-            className="inline-block bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white px-8 py-4 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium text-lg"
-          >
-            🔐 Accès administration
-          </Link>
-        </div>
+
       </div>
     </div>
   );

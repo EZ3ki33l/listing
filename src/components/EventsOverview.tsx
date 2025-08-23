@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { getAllActiveEvents } from '@/lib/actions';
 import { Calendar, Clock } from 'lucide-react';
+import Link from 'next/link';
 
 interface Event {
   id: string;
@@ -30,11 +31,25 @@ const getEventTypeInfo = (eventType: string) => {
 export default function EventsOverview() {
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Vérifier si l'utilisateur est connecté
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        setUserId(user.id);
+      } catch (error) {
+        console.error('Erreur lors de la lecture des données utilisateur:', error);
+      }
+    }
+  }, []);
 
   useEffect(() => {
     const loadEvents = async () => {
       try {
-        const result = await getAllActiveEvents();
+        const result = await getAllActiveEvents(userId || undefined);
         if (result.success && result.events) {
           setEvents(result.events);
         }
@@ -46,7 +61,7 @@ export default function EventsOverview() {
     };
 
     loadEvents();
-  }, []);
+  }, [userId]);
 
   if (isLoading) {
     return (
@@ -58,7 +73,45 @@ export default function EventsOverview() {
   }
 
   if (events.length === 0) {
-    return null;
+    // Si l'utilisateur n'est pas connecté, afficher un message d'invitation
+    if (!userId) {
+      return (
+        <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Calendar className="w-5 h-5 text-blue-600" />
+            <h2 className="text-xl font-semibold text-gray-800">📅 Aperçu de vos événements</h2>
+          </div>
+          <div className="text-center py-8">
+            <div className="text-4xl mb-2">🔐</div>
+            <p className="text-gray-600">Connectez-vous pour voir vos événements</p>
+            <p className="text-sm text-gray-500 mt-2">Créez un compte ou connectez-vous pour organiser vos événements</p>
+            <div className="mt-4 space-x-4">
+              <Link
+                href="/user"
+                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
+              >
+                🔑 Se connecter
+              </Link>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    
+    // Si l'utilisateur est connecté mais n'a pas d'événements
+    return (
+      <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <Calendar className="w-5 h-5 text-blue-600" />
+          <h2 className="text-xl font-semibold text-gray-800">📅 Aperçu de vos événements</h2>
+        </div>
+        <div className="text-center py-8">
+          <div className="text-4xl mb-2">🎉</div>
+          <p className="text-gray-600">Vous n'avez pas encore d'événements</p>
+          <p className="text-sm text-gray-500 mt-2">Créez votre premier événement pour commencer !</p>
+        </div>
+      </div>
+    );
   }
 
   const now = new Date();

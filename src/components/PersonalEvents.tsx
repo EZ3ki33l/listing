@@ -115,22 +115,30 @@ export default function PersonalEvents() {
         createEvent({
           name: 'Anniversaire de Mimoutte',
           eventType: 'anniversaire',
-          targetDate: new Date(`${currentYear}-09-28T00:00:00`)
+          targetDate: new Date(`${currentYear}-09-28T00:00:00`),
+          hasTargetDate: true,
+          isPrivate: false
         }),
         createEvent({
           name: 'Saint-Valentin',
           eventType: 'saint-valentin',
-          targetDate: new Date(`${currentYear}-02-14T00:00:00`)
+          targetDate: new Date(`${currentYear}-02-14T00:00:00`),
+          hasTargetDate: true,
+          isPrivate: false
         }),
         createEvent({
           name: 'Noël',
           eventType: 'noel',
-          targetDate: new Date(`${currentYear}-12-25T00:00:00`)
+          targetDate: new Date(`${currentYear}-12-25T00:00:00`),
+          hasTargetDate: true,
+          isPrivate: false
         }),
         createEvent({
           name: 'Anniversaire de notre rencontre',
           eventType: 'anniversaire-rencontre',
-          targetDate: new Date(`${currentYear}-11-04T00:00:00`)
+          targetDate: new Date(`${currentYear}-11-04T00:00:00`),
+          hasTargetDate: true,
+          isPrivate: false
         })
       ]);
       
@@ -389,7 +397,7 @@ export default function PersonalEvents() {
                 disabled={isLoading}
                 className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white px-4 py-2 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium disabled:transform-none flex items-center gap-2"
               >
-                {isLoading ? '⏳ Création...' : '✨ Créer l\'événement'}
+                {isLoading ? '⏳ Création...' : '✨ Créer l&apos;événement'}
               </button>
               <button
                 type="button"

@@ -2,6 +2,7 @@
 
 import { prisma } from './db';
 import { revalidatePath } from 'next/cache';
+import bcrypt from 'bcryptjs';
 
 // Types
 export interface CreateEventData {
@@ -10,6 +11,7 @@ export interface CreateEventData {
   targetDate?: Date;
   hasTargetDate?: boolean;
   isPrivate?: boolean;
+  ownerId: string; // ID de l'utilisateur propriétaire
 }
 
 export interface CreateShoppingItemData {
@@ -28,6 +30,196 @@ export interface UpdateItemStatusData {
   purchasedBy?: string;
 }
 
+// Actions pour l'authentification des utilisateurs
+export async function registerUser(username: string, password: string, email?: string) {
+  try {
+    // Vérifier si l'utilisateur existe déjà
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username },
+          ...(email ? [{ email }] : [])
+        ]
+      }
+    });
+
+    if (existingUser) {
+      return { success: false, error: 'Nom d\'utilisateur ou email déjà utilisé' };
+    }
+
+    // Hasher le mot de passe
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Créer l'utilisateur
+    const user = await prisma.user.create({
+      data: {
+        username,
+        password: hashedPassword,
+        email
+      }
+    });
+
+    revalidatePath('/');
+    return { success: true, user: { id: user.id, username: user.username, email: user.email } };
+  } catch (error) {
+    console.error('Erreur lors de l\'inscription:', error);
+    return { success: false, error: 'Erreur lors de l\'inscription' };
+  }
+}
+
+export async function authenticateUser(username: string, password: string) {
+  try {
+    // Trouver l'utilisateur
+    const user = await prisma.user.findUnique({
+      where: { username },
+
+    });
+
+    if (!user) {
+      return { success: false, error: 'Nom d\'utilisateur ou mot de passe incorrect' };
+    }
+
+    // Vérifier le mot de passe
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return { success: false, error: 'Nom d\'utilisateur ou mot de passe incorrect' };
+    }
+
+    return { 
+      success: true, 
+      user: { 
+        id: user.id, 
+        username: user.username, 
+        email: user.email,
+        isAdmin: user.isAdmin
+      } 
+    };
+  } catch (error) {
+    console.error('Erreur lors de l\'authentification:', error);
+    return { success: false, error: 'Erreur lors de l\'authentification' };
+  }
+}
+
+export async function getUserEvents(userId: string) {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        ownedEvents: {
+          include: {
+            items: {
+              include: {
+                category: true,
+                photos: true
+              }
+            }
+          }
+        },
+        sharedEvents: {
+          include: {
+            event: {
+              include: {
+                owner: true,
+                items: {
+                  include: {
+                    category: true,
+                    photos: true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      return { success: false, error: 'Utilisateur non trouvé' };
+    }
+
+    // Séparer les événements personnels et partagés
+    const ownedEvents = user.ownedEvents.map(event => ({
+      ...event,
+      isOwned: true,
+      canEdit: true
+    }));
+
+    const sharedEvents = user.sharedEvents.map(share => ({
+      ...share.event,
+      isOwned: false,
+      canEdit: share.canEdit,
+      sharedBy: share.event.owner.username
+    }));
+
+    return { 
+      success: true, 
+      events: [...ownedEvents, ...sharedEvents] 
+    };
+  } catch (error) {
+    console.error('Erreur lors de la récupération des événements:', error);
+    return { success: false, error: 'Erreur lors de la récupération des événements' };
+  }
+}
+
+export async function shareEvent(eventId: string, targetUsername: string, canEdit: boolean = false) {
+  try {
+    // Vérifier que l'événement existe et que l'utilisateur est propriétaire
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: { owner: true }
+    });
+
+    if (!event) {
+      return { success: false, error: 'Événement non trouvé' };
+    }
+
+    // Vérifier que l'utilisateur cible existe
+    const targetUser = await prisma.user.findUnique({
+      where: { username: targetUsername }
+    });
+
+    if (!targetUser) {
+      return { success: false, error: 'Utilisateur non trouvé' };
+    }
+
+    // Vérifier que l'utilisateur ne partage pas avec lui-même
+    if (event.ownerId === targetUser.id) {
+      return { success: false, error: 'Vous ne pouvez pas partager avec vous-même' };
+    }
+
+    // Vérifier que le partage n'existe pas déjà
+    const existingShare = await prisma.eventShare.findUnique({
+      where: {
+        eventId_userId: {
+          eventId,
+          userId: targetUser.id
+        }
+      }
+    });
+
+    if (existingShare) {
+      return { success: false, error: 'Cet événement est déjà partagé avec cet utilisateur' };
+    }
+
+    // Créer le partage
+    await prisma.eventShare.create({
+      data: {
+        eventId,
+        userId: targetUser.id,
+        canEdit
+      }
+    });
+
+    revalidatePath('/');
+    revalidatePath('/liste');
+    
+    return { success: true, message: `Événement partagé avec ${targetUsername}` };
+  } catch (error) {
+    console.error('Erreur lors du partage:', error);
+    return { success: false, error: 'Erreur lors du partage' };
+  }
+}
+
 // Actions pour les événements
 export async function createEvent(data: CreateEventData) {
   try {
@@ -38,6 +230,7 @@ export async function createEvent(data: CreateEventData) {
         targetDate: data.hasTargetDate && data.targetDate ? data.targetDate : null,
         hasTargetDate: data.hasTargetDate ?? true,
         isPrivate: data.isPrivate ?? false,
+        ownerId: data.ownerId,
       },
     });
 
@@ -49,11 +242,40 @@ export async function createEvent(data: CreateEventData) {
   }
 }
 
+export async function updateEvent(eventId: string, data: {
+  name: string;
+  eventType: string;
+  targetDate: Date | null;
+  hasTargetDate: boolean;
+  isPrivate: boolean;
+}) {
+  try {
+    const event = await prisma.event.update({
+      where: { id: eventId },
+      data: {
+        name: data.name,
+        eventType: data.eventType,
+        targetDate: data.hasTargetDate && data.targetDate ? data.targetDate : null,
+        hasTargetDate: data.hasTargetDate,
+        isPrivate: data.isPrivate,
+      },
+    });
+
+    revalidatePath('/');
+    revalidatePath('/user');
+    return { success: true, event };
+  } catch (error) {
+    console.error('Erreur lors de la modification de l\'événement:', error);
+    return { success: false, error: 'Erreur lors de la modification de l\'événement' };
+  }
+}
+
 export async function getEvent(eventId: string) {
   try {
     const event = await prisma.event.findUnique({
       where: { id: eventId },
       include: {
+        owner: true,
         items: {
           include: {
             photos: {
@@ -94,12 +316,15 @@ export async function checkEventAccess(eventId: string, adminPassword?: string) 
       return { success: true, hasAccess: false, requiresPassword: true };
     }
 
-    // Check the admin password
-    const admin = await prisma.admin.findFirst({
-      where: { password: adminPassword }
+    // Check the admin password - vérifier si un utilisateur admin existe avec ce mot de passe
+    const adminUser = await prisma.user.findFirst({
+      where: { 
+        isAdmin: true,
+        password: adminPassword 
+      }
     });
 
-    if (admin) {
+    if (adminUser) {
       return { success: true, hasAccess: true };
     } else {
       return { success: true, hasAccess: false, requiresPassword: true };
@@ -228,25 +453,52 @@ export async function deleteShoppingItem(itemId: string) {
 // Actions pour l'authentification admin
 export async function authenticateAdmin(username: string, password: string) {
   try {
-    const admin = await prisma.admin.findUnique({
-      where: { username },
+    console.log('🔍 [SERVER] Tentative d\'authentification admin pour:', username);
+    const user = await prisma.user.findUnique({
+      where: { username }
     });
-
-    if (!admin) {
+    console.log('🔍 [SERVER] Utilisateur trouvé:', user ? { id: user.id, username: user.username, isAdmin: user.isAdmin } : null);
+    
+    if (!user) {
+      console.log('❌ [SERVER] Utilisateur non trouvé');
       return { success: false, error: 'Nom d\'utilisateur ou mot de passe incorrect' };
     }
-
-    // Vérifier le mot de passe (en production, utiliser bcrypt)
-    if (admin.password !== password) {
+    
+    if (!user.isAdmin) {
+      console.log('❌ [SERVER] Utilisateur n\'est pas admin');
+      return { success: false, error: 'Accès administrateur refusé' };
+    }
+    
+    console.log('🔍 [SERVER] Vérification du mot de passe...');
+    console.log('🔍 [SERVER] Mot de passe reçu:', password);
+    console.log('🔍 [SERVER] Hash stocké en base:', user.password.substring(0, 20) + '...');
+    
+    // Vérifier le mot de passe avec bcrypt
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    console.log('🔍 [SERVER] Résultat de la vérification du mot de passe:', isValidPassword);
+    
+    if (!isValidPassword) {
+      console.log('❌ [SERVER] Mot de passe incorrect');
       return { success: false, error: 'Nom d\'utilisateur ou mot de passe incorrect' };
     }
-
-    return { success: true, admin };
+    
+    console.log('✅ [SERVER] Authentification réussie !');
+    return {
+      success: true,
+      admin: {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        createdAt: user.createdAt
+      }
+    };
   } catch (error) {
-    console.error('Erreur lors de l\'authentification:', error);
+    console.error('❌ [SERVER] Erreur lors de l\'authentification:', error);
     return { success: false, error: 'Erreur lors de l\'authentification' };
   }
 }
+
+
 
 export async function createCategory(data: { name: string; color?: string; icon?: string }) {
   try {
@@ -358,13 +610,16 @@ export async function clearDatabase() {
     await prisma.shoppingItem.deleteMany();
     await prisma.event.deleteMany();
     await prisma.category.deleteMany();
-    await prisma.admin.deleteMany();
+
+
+    // S'assurer qu'un admin existe toujours après le nettoyage
+    await ensureAdminExists();
 
     revalidatePath('/');
     revalidatePath('/admin');
     revalidatePath('/liste');
     
-    return { success: true, message: 'Base de données nettoyée avec succès' };
+    return { success: true, message: 'Base de données nettoyée avec succès (administrateur préservé)' };
   } catch (error) {
     console.error('Erreur lors du nettoyage de la base:', error);
     return { success: false, error: 'Erreur lors du nettoyage de la base' };
@@ -374,34 +629,60 @@ export async function clearDatabase() {
 // Action simple pour s'assurer qu'un admin existe avec les identifiants du .env
 export async function ensureAdminExists() {
   try {
-    // Vérifier si un admin existe déjà
-    const existingAdmin = await prisma.admin.findFirst();
+    const adminUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME || 'admin';
+    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'admin123';
     
-    if (!existingAdmin) {
-      // Créer un admin avec les identifiants du .env
-      await prisma.admin.create({
-        data: {
-          username: process.env.NEXT_PUBLIC_ADMIN_USERNAME || 'admin',
-          password: process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'admin',
-        },
-      });
-      console.log('Admin créé avec les identifiants du .env');
+    // Vérifier si l'admin existe déjà
+    const existingAdmin = await prisma.user.findUnique({
+      where: { username: adminUsername }
+    });
+    
+    if (existingAdmin && existingAdmin.isAdmin) {
+      console.log('✅ Admin existe déjà:', existingAdmin.username);
+      return { success: true, admin: existingAdmin };
     }
     
-    return { success: true };
+    // Créer un nouvel admin
+    const hashedPassword = await bcrypt.hash(adminPassword, 12);
+    const newAdmin = await prisma.user.create({
+      data: {
+        username: adminUsername,
+        password: hashedPassword,
+        email: `${adminUsername}@admin.local`,
+        isAdmin: true
+      }
+    });
+    
+    console.log('✅ Nouvel admin créé:', newAdmin.username);
+    return { success: true, admin: newAdmin };
   } catch (error) {
-    console.error('Erreur lors de la création de l\'admin:', error);
+    console.error('❌ Erreur lors de la création de l\'admin:', error);
     return { success: false, error: 'Erreur lors de la création de l\'admin' };
   }
 }
 
-// Action pour récupérer tous les événements actifs
-export async function getAllActiveEvents() {
+// Action pour récupérer tous les événements actifs (sécurisée)
+export async function getAllActiveEvents(userId?: string) {
   try {
+    // Construire la requête de base
+    const whereClause: any = { isActive: true };
+    
+    // Si l'utilisateur n'est pas connecté, ne montrer AUCUN événement
+    if (!userId) {
+      return { success: true, events: [] };
+    }
+    
+    // Si l'utilisateur est connecté, montrer ses événements + événements partagés
+    whereClause.OR = [
+      { ownerId: userId }, // Ses propres événements
+      { shares: { some: { userId } } } // Événements partagés avec lui
+    ];
+
     const events = await prisma.event.findMany({
-      where: { isActive: true },
+      where: whereClause,
       orderBy: { targetDate: 'asc' },
       include: {
+        owner: true,
         items: {
           include: {
             photos: {
@@ -445,5 +726,120 @@ export async function getEventsByType(eventType: string) {
   } catch (error) {
     console.error('Erreur lors de la récupération des événements par type:', error);
     return { success: false, error: 'Erreur lors de la récupération des événements' };
+  }
+}
+
+// Action pour se retirer d'un événement partagé
+export async function leaveSharedEvent(eventId: string, userId: string) {
+  try {
+    // Vérifier que l'utilisateur est bien partagé sur cet événement
+    const eventShare = await prisma.eventShare.findFirst({
+      where: {
+        eventId: eventId,
+        userId: userId
+      },
+      include: {
+        event: {
+          include: {
+            owner: true
+          }
+        },
+        user: true
+      }
+    });
+
+    if (!eventShare) {
+      return { success: false, error: 'Vous n\'êtes pas partagé sur cet événement' };
+    }
+
+    // Supprimer le partage
+    await prisma.eventShare.delete({
+      where: {
+        id: eventShare.id
+      }
+    });
+
+    // Créer une notification pour le propriétaire
+    try {
+      await prisma.notification.create({
+        data: {
+          userId: eventShare.event.ownerId,
+          type: 'EVENT_LEAVE',
+          title: 'Un utilisateur s\'est retiré de votre événement',
+          message: `${eventShare.user.username || 'Un utilisateur'} s'est retiré de l'événement "${eventShare.event.name}"`,
+          data: {
+            eventId: eventId,
+            eventName: eventShare.event.name,
+            leavingUserId: userId,
+            leavingUsername: eventShare.user.username || 'Utilisateur inconnu'
+          },
+          isRead: false
+        }
+      });
+      console.log('✅ Notification créée pour le propriétaire');
+    } catch (notificationError) {
+      console.error('⚠️ Erreur lors de la création de la notification:', notificationError);
+      // On continue même si la notification échoue
+    }
+
+    console.log('✅ Utilisateur retiré de l\'événement partagé');
+    return { 
+      success: true, 
+      message: 'Vous vous êtes retiré de l\'événement',
+      eventName: eventShare.event.name,
+      ownerUsername: eventShare.event.owner.username
+    };
+  } catch (error) {
+    console.error('❌ Erreur lors du retrait de l\'événement partagé:', error);
+    return { success: false, error: 'Erreur lors du retrait de l\'événement' };
+  }
+}
+
+// Action pour récupérer les notifications d'un utilisateur
+export async function getUserNotifications(userId: string) {
+  try {
+    const notifications = await prisma.notification.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+      take: 50 // Limiter à 50 notifications récentes
+    });
+
+    return { success: true, notifications };
+  } catch (error) {
+    console.error('❌ Erreur lors de la récupération des notifications:', error);
+    return { success: false, error: 'Erreur lors de la récupération des notifications' };
+  }
+}
+
+// Action pour marquer une notification comme lue
+export async function markNotificationAsRead(notificationId: string) {
+  try {
+    await prisma.notification.update({
+      where: { id: notificationId },
+      data: { isRead: true }
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Erreur lors de la mise à jour de la notification:', error);
+    return { success: false, error: 'Erreur lors de la mise à jour de la notification' };
+  }
+}
+
+// Action pour recréer l'administrateur manuellement
+export async function recreateAdmin() {
+  try {
+    // Supprimer tous les utilisateurs admin existants
+    await prisma.user.deleteMany({
+      where: { isAdmin: true }
+    });
+    
+    console.log('✅ Tous les admin supprimés');
+    
+    // Recréer l'admin
+    return await ensureAdminExists();
+  } catch (error) {
+    console.error('❌ Erreur lors de la recréation de l\'admin:', error);
+    return { success: false, error: 'Erreur lors de la recréation de l\'admin' };
   }
 }
