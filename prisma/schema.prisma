@@ -1,0 +1,77 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Event {
+  id          String   @id @default(cuid())
+  name        String   // Nom de l'événement (ex: "Anniversaire de Mimoutte")
+  eventType   String   @default("anniversaire") // Type d'événement: "anniversaire", "noel", "saint-valentin", "anniversaire-rencontre"
+  targetDate  DateTime? // Date cible de l'événement (optionnelle)
+  hasTargetDate Boolean @default(true) // Indique si l'événement a une date cible
+  isPrivate   Boolean  @default(false) // Indique si l'événement est privé (nécessite mot de passe)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  isActive    Boolean  @default(true)
+  
+  // Relation directe avec les articles
+  items ShoppingItem[]
+}
+
+model Admin {
+  id        String @id @default(cuid())
+  username  String @unique // Pseudo unique de l'administrateur
+  password  String // Hash du mot de passe
+  createdAt DateTime @default(now())
+}
+
+model ShoppingItem {
+  id             String @id @default(cuid())
+  eventId        String // Directement lié à l'événement
+  name           String // Nom de l'article
+  description    String? // Description détaillée
+  price          Float? // Prix estimé
+  purchaseUrl    String? // Lien d'achat (ex: Amazon, etc.)
+  isPurchased    Boolean @default(false) // Statut de l'article
+  purchasedBy    String? // Qui a acheté l'article
+  purchasedAt    DateTime?
+  categoryId     String? // ID de la catégorie
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  event Event @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  photos ShoppingItemPhoto[] // Photos en carrousel
+  category Category? @relation(fields: [categoryId], references: [id])
+}
+
+model ShoppingItemPhoto {
+  id             String @id @default(cuid())
+  shoppingItemId String
+  imageUrl       String // URL de l'image
+  altText        String? // Texte alternatif pour l'accessibilité
+  order          Int // Ordre dans le carrousel
+  createdAt      DateTime @default(now())
+  
+  shoppingItem ShoppingItem @relation(fields: [shoppingItemId], references: [id], onDelete: Cascade)
+  
+  @@unique([shoppingItemId, order])
+}
+
+model Category {
+  id          String @id @default(cuid())
+  name        String @unique // Nom de la catégorie
+  color       String @default("#3B82F6") // Couleur de la catégorie (hex)
+  icon        String? // Icône de la catégorie
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  items       ShoppingItem[]
+}
