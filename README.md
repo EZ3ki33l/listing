@@ -118,15 +118,6 @@ L'application sera accessible sur `http://localhost:3000`
 - **Icons** : Lucide React
 - **Dates** : date-fns
 
-## 📝 Configuration des événements personnels
-
-L'application est pré-configurée pour vos événements spécifiques :
-
-- **Anniversaire de Mimoutte** : 28 septembre
-- **Saint-Valentin** : 14 février
-- **Noël** : 25 décembre  
-- **Anniversaire de notre rencontre** : 4 novembre
-
 ## 🤝 Support
 
 Cette application est conçue pour un usage familial et personnel. Elle vous permet de :
