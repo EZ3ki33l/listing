@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getEvent, createShoppingItem, updateItemStatus, deleteShoppingItem, getCategories } from '@/lib/actions';
 import Link from 'next/link';
+import CategoryFilter from '@/components/CategoryFilter';
+import SearchBar from '@/components/SearchBar';
+import ImageCarousel from '@/components/ImageCarousel';
 
 interface Event {
   id: string;
@@ -68,6 +71,10 @@ function ListePageContent() {
     categoryId: '',
     photos: [{ imageUrl: '', altText: '' }]
   });
+  
+  // États pour le filtrage et la recherche
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [searchQuery] = useState('');
 
   const loadEventData = useCallback(async () => {
     if (!eventId) return;
@@ -278,8 +285,30 @@ function ListePageContent() {
     );
   }
 
-  const purchasedItems = event.items.filter(item => item.isPurchased);
-  const pendingItems = event.items.filter(item => !item.isPurchased);
+  // Filtrage des articles par catégorie et recherche
+  const filteredItems = event.items.filter(item => {
+    // Filtre par catégorie
+    if (selectedCategories.length > 0 && item.category && !selectedCategories.includes(item.category.id)) {
+      return false;
+    }
+    
+    // Filtre par recherche
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const matchesName = item.name.toLowerCase().includes(query);
+      const matchesDescription = item.description?.toLowerCase().includes(query) || false;
+      const matchesCategory = item.category?.name.toLowerCase().includes(query) || false;
+      
+      if (!matchesName && !matchesDescription && !matchesCategory) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+
+  const purchasedItems = filteredItems.filter(item => item.isPurchased);
+  const pendingItems = filteredItems.filter(item => !item.isPurchased);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50">
@@ -329,6 +358,50 @@ function ListePageContent() {
             {message}
           </div>
         )}
+
+        {/* Filtres et recherche */}
+        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
+          <div className="space-y-6">
+            {/* Barre de recherche */}
+            <SearchBar
+              items={event.items.map(item => ({
+                id: item.id,
+                name: item.name,
+                description: item.description || undefined,
+                category: item.category ? {
+                  name: item.category.name,
+                  color: item.category.color
+                } : undefined,
+                shoppingListName: event.name
+              }))}
+              onItemSelect={(itemId) => {
+                // Faire défiler vers l'article sélectionné
+                const element = document.getElementById(`item-${itemId}`);
+                if (element) {
+                  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                  // Mettre en surbrillance temporaire
+                  element.classList.add('ring-4', 'ring-blue-500', 'ring-opacity-50');
+                  setTimeout(() => {
+                    element.classList.remove('ring-4', 'ring-blue-500', 'ring-opacity-50');
+                  }, 2000);
+                }
+              }}
+              placeholder="Rechercher un article dans cette liste..."
+            />
+            
+            {/* Filtre par catégorie */}
+            <CategoryFilter
+              categories={categories.map(cat => ({
+                ...cat,
+                icon: cat.icon || undefined,
+                itemCount: event.items.filter(item => item.category?.id === cat.id).length
+              }))}
+              selectedCategories={selectedCategories}
+              onCategorySelect={setSelectedCategories}
+              showAll={true}
+            />
+          </div>
+        </div>
 
         {/* Bouton d'ajout - Seulement pour le propriétaire */}
         {canAddItems() && (
@@ -481,45 +554,70 @@ function ListePageContent() {
               <p className="text-gray-600">Tous les articles ont été achetés !</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {pendingItems.map((item) => (
-                <div key={item.id} className="bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-all duration-300">
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-medium text-gray-800">{item.name}</h3>
-                    {item.category && (
-                      <span
-                        className="px-2 py-1 text-xs font-medium rounded-full text-white"
-                        style={{ backgroundColor: item.category.color }}
-                      >
-                        {item.category.icon} {item.category.name}
-                      </span>
-                    )}
-                  </div>
-                  
-                  {item.description && (
-                    <p className="text-sm text-gray-600 mb-2">{item.description}</p>
+                <div key={item.id} id={`item-${item.id}`} className="bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-all duration-300">
+                  {/* Photos */}
+                  {item.photos && item.photos.length > 0 && (
+                    <div className="mb-4">
+                      <ImageCarousel photos={item.photos.map(photo => ({
+                        ...photo,
+                        altText: photo.altText || undefined
+                      }))} className="h-48" />
+                    </div>
                   )}
                   
-                  {item.price && (
-                    <p className="text-green-600 font-semibold text-sm mb-2">💰 {item.price}€</p>
-                  )}
-                  
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleToggleItem(item.id, true)}
-                      className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      ✅ Acheté
-                    </button>
+                  {/* Informations de l'article */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-start">
+                      <h3 className="font-medium text-gray-800 text-lg">{item.name}</h3>
+                      {item.category && (
+                        <span
+                          className="px-2 py-1 text-xs font-medium rounded-full text-white flex items-center gap-1"
+                          style={{ backgroundColor: item.category.color }}
+                        >
+                          {item.category.icon} {item.category.name}
+                        </span>
+                      )}
+                    </div>
                     
-                    {canDeleteItems() && (
-                      <button
-                        onClick={() => handleDeleteItem(item.id)}
-                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        🗑️
-                      </button>
+                    {item.description && (
+                      <p className="text-sm text-gray-600">{item.description}</p>
                     )}
+                    
+                    {item.price && (
+                      <p className="text-green-600 font-semibold text-sm">💰 {item.price}€</p>
+                    )}
+                    
+                    {item.purchaseUrl && (
+                      <a
+                        href={item.purchaseUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      >
+                        🔗 Voir le produit
+                      </a>
+                    )}
+                    
+                    {/* Boutons d'action */}
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        onClick={() => handleToggleItem(item.id, true)}
+                        className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        ✅ Acheté
+                      </button>
+                      
+                      {canDeleteItems() && (
+                        <button
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -534,45 +632,70 @@ function ListePageContent() {
               ✅ Articles achetés ({purchasedItems.length})
             </h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {purchasedItems.map((item) => (
-                <div key={item.id} className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200 p-4 shadow-sm">
-                  <div className="flex justify-between items-start mb-3">
-                    <h3 className="font-medium text-gray-800 line-through">{item.name}</h3>
-                    {item.category && (
-                      <span
-                        className="px-2 py-1 text-xs font-medium rounded-full text-white"
-                        style={{ backgroundColor: item.category.color }}
-                      >
-                        {item.category.icon} {item.category.name}
-                      </span>
-                    )}
-                  </div>
-                  
-                  {item.description && (
-                    <p className="text-sm text-gray-600 mb-2 line-through">{item.description}</p>
+                <div key={item.id} id={`item-${item.id}`} className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200 p-4 shadow-sm">
+                  {/* Photos */}
+                  {item.photos && item.photos.length > 0 && (
+                    <div className="mb-4">
+                      <ImageCarousel photos={item.photos.map(photo => ({
+                        ...photo,
+                        altText: photo.altText || undefined
+                      }))} className="h-48" />
+                    </div>
                   )}
                   
-                  <p className="text-sm text-green-600 mb-2">
-                    ✅ Acheté par {item.purchasedBy} le {item.purchasedAt ? new Date(item.purchasedAt).toLocaleDateString('fr-FR') : 'récemment'}
-                  </p>
-                  
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleToggleItem(item.id, false)}
-                      className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      🔄 Annuler achat
-                    </button>
+                  {/* Informations de l'article */}
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-start">
+                      <h3 className="font-medium text-gray-800 text-lg line-through">{item.name}</h3>
+                      {item.category && (
+                        <span
+                          className="px-2 py-1 text-xs font-medium rounded-full text-white flex items-center gap-1"
+                          style={{ backgroundColor: item.category.color }}
+                        >
+                          {item.category.icon} {item.category.name}
+                        </span>
+                      )}
+                    </div>
                     
-                    {canDeleteItems() && (
-                      <button
-                        onClick={() => handleDeleteItem(item.id)}
-                        className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        🗑️
-                      </button>
+                    {item.description && (
+                      <p className="text-sm text-gray-600 line-through">{item.description}</p>
                     )}
+                    
+                    <p className="text-sm text-green-600">
+                      ✅ Acheté par {item.purchasedBy} le {item.purchasedAt ? new Date(item.purchasedAt).toLocaleDateString('fr-FR') : 'récemment'}
+                    </p>
+                    
+                    {item.purchaseUrl && (
+                      <a
+                        href={item.purchaseUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      >
+                        🔗 Voir le produit
+                      </a>
+                    )}
+                    
+                    {/* Boutons d'action */}
+                    <div className="flex gap-2 pt-2">
+                      <button
+                        onClick={() => handleToggleItem(item.id, false)}
+                        className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        🔄 Annuler achat
+                      </button>
+                      
+                      {canDeleteItems() && (
+                        <button
+                          onClick={() => handleDeleteItem(item.id)}
+                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          🗑️
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

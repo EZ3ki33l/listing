@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { authenticateAdmin, createCategory, updateCategory, deleteCategory, getCategoriesWithItemCount } from '@/lib/actions';
+import DefaultCategoriesInitializer from '@/components/DefaultCategoriesInitializer';
 
 interface Category {
   id: string;
@@ -218,6 +219,8 @@ export default function AdminPage() {
 
 
 
+
+
   const startEditCategory = (category: Category) => {
     setEditingCategory(category);
     setEditCategoryData({
@@ -273,7 +276,7 @@ export default function AdminPage() {
                   type="text"
                   autoComplete="username"
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-500 transition-all duration-200"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder:text-gray-600 placeholder:font-medium bg-white transition-all duration-200"
                   placeholder="admin"
                 />
               </div>
@@ -287,7 +290,7 @@ export default function AdminPage() {
                   type="password"
                   autoComplete="current-password"
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-500 transition-all duration-200"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder:text-gray-600 placeholder:font-medium bg-white transition-all duration-200"
                   placeholder="Mot de passe"
                 />
               </div>
@@ -383,6 +386,28 @@ export default function AdminPage() {
             </button>
           </div>
 
+          {/* Message informatif */}
+          {categories.length === 0 && (
+            <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+              <div className="flex items-start gap-3">
+                <div className="text-blue-600 text-xl">💡</div>
+                <div>
+                  <h4 className="font-medium text-blue-800 mb-1">Aucune catégorie existante</h4>
+                  <p className="text-blue-700 text-sm">
+                    Vous pouvez créer des catégories manuellement ou utiliser l&apos;outil d&apos;initialisation 
+                    pour créer automatiquement 15 catégories prédéfinies (vêtements & chaussures, électronique & tech, livres & médias, etc.).
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Initialisation des catégories par défaut */}
+          <DefaultCategoriesInitializer 
+            onCategoriesCreated={loadCategories}
+            hasExistingCategories={categories.length > 0}
+          />
+
           {/* Formulaire de création de catégorie */}
           {showCategoryForm && (
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
@@ -393,21 +418,21 @@ export default function AdminPage() {
                   placeholder="Nom de la catégorie"
                   value={newCategory.name}
                   onChange={(e) => setNewCategory(prev => ({ ...prev, name: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 placeholder:text-gray-600 placeholder:font-medium bg-white"
                   required
                 />
                 <input
                   type="color"
                   value={newCategory.color}
                   onChange={(e) => setNewCategory(prev => ({ ...prev, color: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
                 />
                 <input
                   type="text"
                   placeholder="Icône (optionnel)"
                   value={newCategory.icon}
                   onChange={(e) => setNewCategory(prev => ({ ...prev, icon: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500"
+                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 placeholder:text-gray-600 placeholder:font-medium bg-white"
                 />
                 <button
                   type="submit"
@@ -465,21 +490,22 @@ export default function AdminPage() {
                   placeholder="Nom de la catégorie"
                   value={editCategoryData.name}
                   onChange={(e) => setEditCategoryData(prev => ({ ...prev, name: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-600 placeholder:font-medium bg-white"
                   required
                 />
                 <input
                   type="color"
                   value={editCategoryData.color}
                   onChange={(e) => setEditCategoryData(prev => ({ ...prev, color: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
                 />
                 <input
                   type="text"
                   placeholder="Icône (optionnel)"
                   value={editCategoryData.icon}
                   onChange={(e) => setEditCategoryData(prev => ({ ...prev, icon: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-600 placeholder:font-medium bg-white"
+                  required
                 />
                 <div className="flex gap-2">
                   <button

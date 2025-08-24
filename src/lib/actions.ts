@@ -857,3 +857,62 @@ export async function recreateAdmin() {
     return { success: false, error: 'Erreur lors de la recréation de l\'admin' };
   }
 }
+
+// Action pour initialiser les catégories par défaut
+export async function initializeDefaultCategories() {
+  try {
+    // Vérifier si des catégories existent déjà
+    const existingCategories = await prisma.category.findMany();
+    
+    if (existingCategories.length > 0) {
+      return { 
+        success: false, 
+        error: 'Des catégories existent déjà. Cette action ne peut être effectuée que sur une base vide.' 
+      };
+    }
+
+    // Définir les catégories par défaut
+    const defaultCategories = [
+      { name: 'Vêtements & Chaussures', color: '#EF4444', icon: '👕' },
+      { name: 'Électronique & Tech', color: '#3B82F6', icon: '📱' },
+      { name: 'Livres & Médias', color: '#10B981', icon: '📚' },
+      { name: 'Beauté & Soins', color: '#EC4899', icon: '💄' },
+      { name: 'Cuisine & Maison', color: '#F97316', icon: '🍳' },
+      { name: 'Gaming & Loisirs', color: '#8B5CF6', icon: '🎮' },
+      { name: 'Sport & Fitness', color: '#06B6D4', icon: '🏃' },
+      { name: 'Bijoux & Accessoires', color: '#A855F7', icon: '💍' },
+      { name: 'Santé & Bien-être', color: '#F43F5E', icon: '💊' },
+      { name: 'Bricolage & Jardinage', color: '#22C55E', icon: '🔨' },
+      { name: 'Alimentation & Boissons', color: '#84CC16', icon: '🍎' },
+      { name: 'Décoration & Art', color: '#EAB308', icon: '🎨' },
+      { name: 'Outils & Équipements', color: '#6B7280', icon: '🛠️' },
+      { name: 'Mode & Accessoires', color: '#14B8A6', icon: '👜' },
+      { name: 'Loisirs & Hobbies', color: '#D97706', icon: '🎯' }
+    ];
+
+    // Créer toutes les catégories
+    const createdCategories = await Promise.all(
+      defaultCategories.map(category => 
+        prisma.category.create({
+          data: {
+            name: category.name,
+            color: category.color,
+            icon: category.icon
+          }
+        })
+      )
+    );
+
+    console.log(`✅ ${createdCategories.length} catégories par défaut créées avec succès`);
+    
+    revalidatePath('/admin');
+    return { 
+      success: true, 
+      message: `${createdCategories.length} catégories par défaut ont été créées avec succès !`,
+      categories: createdCategories
+    };
+  } catch (error) {
+    console.error('❌ Erreur lors de l\'initialisation des catégories par défaut:', error);
+    return { success: false, error: 'Erreur lors de l\'initialisation des catégories par défaut' };
+  }
+}
