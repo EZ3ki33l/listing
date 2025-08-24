@@ -107,7 +107,7 @@ export default function EventsOverview() {
         </div>
         <div className="text-center py-8">
           <div className="text-4xl mb-2">🎉</div>
-          <p className="text-gray-600">Vous n'avez pas encore d'événements</p>
+          <p className="text-gray-600">Vous n&apos;avez pas encore d&apos;événements</p>
           <p className="text-sm text-gray-500 mt-2">Créez votre premier événement pour commencer !</p>
         </div>
       </div>

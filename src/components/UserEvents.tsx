@@ -4,29 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { getUserEvents, shareEvent, createEvent, updateEvent } from '@/lib/actions';
 import Link from 'next/link';
 
-interface ShoppingItem {
-  id: string;
-  name: string;
-  description?: string;
-  price?: number;
-  isPurchased: boolean;
-  purchasedAt?: Date;
-  purchasedBy?: string;
-  purchaseUrl?: string;
-  categoryId?: string;
-  category?: {
-    id: string;
-    name: string;
-    color: string;
-    icon?: string;
-  };
-  photos: {
-    id: string;
-    imageUrl: string;
-    altText?: string;
-    order: number;
-  }[];
-}
+
 
 interface UserEventsProps {
   userId: string;
@@ -43,7 +21,29 @@ interface Event {
   isOwned: boolean;
   canEdit: boolean;
   sharedBy?: string;
-  items: ShoppingItem[];
+  items: {
+    id: string;
+    name: string;
+    description: string | null;
+    price: number | null;
+    isPurchased: boolean;
+    purchasedAt: Date | null;
+    purchasedBy: string | null;
+    purchaseUrl: string | null;
+    categoryId: string | null;
+    category?: {
+      id: string;
+      name: string;
+      color: string;
+      icon?: string | null;
+    } | null;
+    photos: {
+      id: string;
+      imageUrl: string;
+      altText?: string | null;
+      order: number;
+    }[];
+  }[];
 }
 
 export default function UserEvents({ userId }: UserEventsProps) {
@@ -75,16 +75,6 @@ export default function UserEvents({ userId }: UserEventsProps) {
     isPrivate: false
   });
 
-  useEffect(() => {
-    // Marquer l'initialisation comme terminée quand userId change
-    if (userId) {
-      setIsInitializing(false);
-      loadEvents();
-    } else {
-      setIsInitializing(false);
-    }
-  }, [userId]);
-
   const loadEvents = useCallback(async () => {
     try {
       const result = await getUserEvents(userId);
@@ -100,6 +90,16 @@ export default function UserEvents({ userId }: UserEventsProps) {
       setIsLoading(false);
     }
   }, [userId]);
+
+  useEffect(() => {
+    // Marquer l'initialisation comme terminée quand userId change
+    if (userId) {
+      setIsInitializing(false);
+      loadEvents();
+    } else {
+      setIsInitializing(false);
+    }
+  }, [userId, loadEvents]);
 
   const handleShare = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,7 +120,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
         setMessage(`❌ ${result.error}`);
       }
     } catch (error) {
-      setMessage('❌ Erreur lors du partage');
+      setMessage(`❌ Erreur lors du partage: ${error}`);
     }
   };
 
@@ -135,7 +135,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
       const eventData = {
         name: createEventData.name,
         eventType: createEventData.eventType,
-        targetDate: createEventData.hasTargetDate && createEventData.targetDate ? new Date(createEventData.targetDate) : null,
+        targetDate: createEventData.hasTargetDate && createEventData.targetDate ? new Date(createEventData.targetDate) : undefined,
         hasTargetDate: createEventData.hasTargetDate,
         isPrivate: createEventData.isPrivate,
         ownerId: userId
@@ -159,7 +159,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
         setMessage(`❌ ${result.error}`);
       }
     } catch (error) {
-      setMessage('❌ Erreur lors de la création de l\'événement');
+      setMessage(`❌ Erreur lors de la création de l'événement: ${error}`);
     }
   };
 
@@ -200,7 +200,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
         setMessage(`❌ Erreur: ${result.error}`);
       }
     } catch (error) {
-      setMessage('❌ Erreur lors de la modification de l\'événement');
+      setMessage(`❌ Erreur lors de la modification de l'événement: ${error}`);
     }
   };
 
@@ -276,7 +276,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
         {ownedEvents.length === 0 ? (
           <div className="text-center py-8 bg-gray-50 rounded-2xl min-h-[200px] flex items-center justify-center">
             <div>
-              <p className="text-gray-600">Vous n'avez pas encore créé d'événements.</p>
+              <p className="text-gray-600">Vous n&apos;avez pas encore créé d&apos;événements.</p>
               <div className="mt-4">
                 <button
                   onClick={() => setShowCreateForm(true)}
@@ -382,13 +382,13 @@ export default function UserEvents({ userId }: UserEventsProps) {
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4">
             <div className="p-6">
               <h3 className="text-xl font-bold text-gray-800 mb-4">
-                📤 Partager "{selectedEvent.name}"
+                📤 Partager &quot;{selectedEvent.name}&quot;
               </h3>
               
               <form onSubmit={handleShare} className="space-y-4">
                 <div>
                   <label htmlFor="targetUsername" className="block text-sm font-medium text-gray-700 mb-2">
-                    Nom d'utilisateur
+                    Nom d&apos;utilisateur
                   </label>
                   <input
                     id="targetUsername"
@@ -410,7 +410,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
                     className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
                   />
                   <label htmlFor="canEdit" className="text-sm text-gray-700">
-                    L'utilisateur peut modifier la liste
+                    L&apos;utilisateur peut modifier la liste
                   </label>
                 </div>
                 
@@ -452,7 +452,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
               <form onSubmit={handleCreateEvent} className="space-y-4">
                 <div>
                   <label htmlFor="eventName" className="block text-sm font-medium text-gray-700 mb-2">
-                    Nom de l'événement
+                    Nom de l&apos;événement
                   </label>
                   <input
                     id="eventName"
@@ -467,7 +467,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
                 
                 <div>
                   <label htmlFor="eventType" className="block text-sm font-medium text-gray-700 mb-2">
-                    Type d'événement
+                    Type d&apos;événement
                   </label>
                   <select
                     id="eventType"
@@ -529,7 +529,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
                     type="submit"
                     className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-300"
                   >
-                    ➕ Créer l'événement
+                    ➕ Créer l&apos;événement
                   </button>
                   
                   <button
@@ -560,12 +560,12 @@ export default function UserEvents({ userId }: UserEventsProps) {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">✏️ Modifier l'événement</h3>
+              <h3 className="text-xl font-semibold text-gray-800 mb-4">✏️ Modifier l&apos;événement</h3>
               
               <form onSubmit={handleUpdateEvent} className="space-y-4">
                 <div>
                   <label htmlFor="editEventName" className="block text-sm font-medium text-gray-700 mb-2">
-                    Nom de l'événement
+                    Nom de l&apos;événement
                   </label>
                   <input
                     id="editEventName"
@@ -580,7 +580,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
                 
                 <div>
                   <label htmlFor="editEventType" className="block text-sm font-medium text-gray-700 mb-2">
-                    Type d'événement
+                    Type d&apos;événement
                   </label>
                   <select
                     id="editEventType"
@@ -642,7 +642,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
                     type="submit"
                     className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-300"
                   >
-                    ✏️ Modifier l'événement
+                    ✏️ Modifier l&apos;événement
                   </button>
                   
                   <button

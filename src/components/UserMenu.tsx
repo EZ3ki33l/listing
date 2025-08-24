@@ -48,6 +48,10 @@ export default function UserMenu({ userId }: UserMenuProps) {
 
   const handleLogout = () => {
     localStorage.removeItem('user');
+    
+    // Déclencher un événement personnalisé pour notifier la déconnexion
+    window.dispatchEvent(new CustomEvent('userLogout'));
+    
     router.push('/');
   };
 
@@ -110,7 +114,7 @@ export default function UserMenu({ userId }: UserMenuProps) {
 
                       {/* Menu déroulant simple */}
         {isMenuOpen && (
-          <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-[9999]">
+          <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-[20]">
             {/* En-tête du menu */}
             <div className="px-4 py-3 border-b border-gray-100">
               <div className="flex items-center space-x-3">

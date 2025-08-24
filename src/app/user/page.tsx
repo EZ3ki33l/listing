@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import UserEvents from '@/components/UserEvents';
 import UserAuth from '@/components/UserAuth';
 import UserNotifications from '@/components/UserNotifications';
@@ -19,7 +18,6 @@ export default function UserPage() {
   const [user, setUser] = useState<User | null>(null);
   const [showAuth, setShowAuth] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
-  const router = useRouter();
 
   useEffect(() => {
     // Vérifier si l'utilisateur est connecté (stocké dans localStorage)
@@ -64,7 +62,7 @@ export default function UserPage() {
             👋 Bienvenue !
           </h1>
           <p className="text-lg text-gray-600 mb-8 max-w-2xl mx-auto">
-            Connectez-vous ou créez un compte pour gérer vos listes d'achats personnelles et partagées.
+            Connectez-vous ou créez un compte pour gérer vos listes d&apos;achats personnelles et partagées.
           </p>
           
           <div className="space-y-4">
@@ -72,7 +70,7 @@ export default function UserPage() {
               onClick={() => setShowAuth(true)}
               className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-8 py-4 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium text-lg"
             >
-              🔐 Se connecter / S'inscrire
+              🔐 Se connecter / S&apos;inscrire
             </button>
             
             <div>
@@ -80,7 +78,7 @@ export default function UserPage() {
                 href="/"
                 className="text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
               >
-                ← Retour à l'accueil
+                ← Retour à l&apos;accueil
               </Link>
             </div>
           </div>
@@ -124,7 +122,7 @@ export default function UserPage() {
       </header>
 
       <main className="max-w-6xl mx-auto p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="flex flex-col gap-8">
           {/* Section principale - Événements */}
           <div className="lg:col-span-2">
             <UserEvents userId={user.id} />

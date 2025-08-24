@@ -665,7 +665,7 @@ export async function ensureAdminExists() {
 export async function getAllActiveEvents(userId?: string) {
   try {
     // Construire la requête de base
-    const whereClause: any = { isActive: true };
+    const whereClause: { isActive: boolean; OR?: Array<{ ownerId: string } | { shares: { some: { userId: string } } }> } = { isActive: true };
     
     // Si l'utilisateur n'est pas connecté, ne montrer AUCUN événement
     if (!userId) {
@@ -823,6 +823,20 @@ export async function markNotificationAsRead(notificationId: string) {
   } catch (error) {
     console.error('❌ Erreur lors de la mise à jour de la notification:', error);
     return { success: false, error: 'Erreur lors de la mise à jour de la notification' };
+  }
+}
+
+// Action pour supprimer une notification
+export async function deleteNotification(notificationId: string) {
+  try {
+    await prisma.notification.delete({
+      where: { id: notificationId }
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Erreur lors de la suppression de la notification:', error);
+    return { success: false, error: 'Erreur lors de la suppression de la notification' };
   }
 }
 

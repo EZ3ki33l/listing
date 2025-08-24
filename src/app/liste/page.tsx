@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { getEvent, createShoppingItem, updateItemStatus, deleteShoppingItem, getCategories } from '@/lib/actions';
 import Link from 'next/link';
@@ -50,7 +50,7 @@ interface Category {
   icon: string | null;
 }
 
-export default function ListePage() {
+function ListePageContent() {
   const searchParams = useSearchParams();
   const eventId = searchParams.get('event');
   
@@ -69,24 +69,7 @@ export default function ListePage() {
     photos: [{ imageUrl: '', altText: '' }]
   });
 
-  useEffect(() => {
-    // Vérifier si l'utilisateur est connecté
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        setCurrentUser({ id: user.id, username: user.username });
-      } catch (error) {
-        console.error('Erreur lors de la lecture des données utilisateur:', error);
-      }
-    }
-
-    if (eventId) {
-      loadEventData();
-    }
-  }, [eventId]);
-
-  const loadEventData = async () => {
+  const loadEventData = useCallback(async () => {
     if (!eventId) return;
     
     try {
@@ -109,16 +92,28 @@ export default function ListePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [eventId]);
+
+  useEffect(() => {
+    // Vérifier si l'utilisateur est connecté
+    const storedUser = localStorage.getItem('user');
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        setCurrentUser({ id: user.id, username: user.username });
+      } catch (error) {
+        console.error('Erreur lors de la lecture des données utilisateur:', error);
+      }
+    }
+
+    if (eventId) {
+      loadEventData();
+    }
+  }, [eventId, loadEventData]);
 
   // Vérifier si l'utilisateur actuel est le propriétaire de l'événement
   const isOwner = () => {
     return currentUser && event && currentUser.id === event.owner.id;
-  };
-
-  // Vérifier si l'utilisateur actuel peut modifier l'événement
-  const canEdit = () => {
-    return isOwner();
   };
 
   // Vérifier si l'utilisateur actuel peut ajouter des articles
@@ -168,7 +163,7 @@ export default function ListePage() {
         setMessage(`❌ Erreur: ${result.error}`);
       }
     } catch (error) {
-      setMessage('❌ Erreur lors de l\'ajout de l\'article');
+      setMessage(`❌ Erreur lors de l'ajout de l'article: ${error}`);
     } finally {
       setIsLoading(false);
     }
@@ -250,13 +245,13 @@ export default function ListePage() {
           <div className="text-6xl mb-4">❌</div>
           <h1 className="text-2xl font-bold text-gray-800 mb-4">Événement non trouvé</h1>
           <p className="text-gray-600 mb-6">
-            L'événement que vous recherchez n'existe pas ou vous n'y avez pas accès.
+            L&apos;événement que vous recherchez n&apos;existe pas ou vous n&apos;y avez pas accès.
           </p>
           <Link
             href="/user"
             className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
           >
-            ← Retour à l'espace utilisateur
+            ← Retour à l&apos;espace utilisateur
           </Link>
         </div>
       </div>
@@ -270,13 +265,13 @@ export default function ListePage() {
           <div className="text-6xl mb-4">⚠️</div>
           <h1 className="text-2xl font-bold text-gray-800 mb-4">Erreur de données</h1>
           <p className="text-gray-600 mb-6">
-            L'événement existe mais les informations du propriétaire sont manquantes.
+            L&apos;événement existe mais les informations du propriétaire sont manquantes.
           </p>
           <Link
             href="/user"
             className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
           >
-            ← Retour à l'espace utilisateur
+            ← Retour à l&apos;espace utilisateur
           </Link>
         </div>
       </div>
@@ -296,7 +291,7 @@ export default function ListePage() {
                 🛍️ {event.name}
               </h1>
                              <p className="text-sm text-gray-600">
-                 Liste d'achats • Créée par {event.owner.username}
+                 Liste d&apos;achats • Créée par {event.owner.username}
                  {event.hasTargetDate && event.targetDate && (
                    <span> • Date cible : {new Date(event.targetDate).toLocaleDateString('fr-FR')}</span>
                  )}
@@ -317,7 +312,7 @@ export default function ListePage() {
                 href="/"
                 className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
               >
-                ← Retour à l'accueil
+                ← Retour à l&apos;accueil
               </Link>
             </div>
           </div>
@@ -586,5 +581,20 @@ export default function ListePage() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function ListePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600 mx-auto"></div>
+          <p className="mt-4 text-lg text-gray-600">Chargement...</p>
+        </div>
+      </div>
+    }>
+      <ListePageContent />
+    </Suspense>
   );
 }

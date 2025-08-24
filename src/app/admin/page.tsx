@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { authenticateAdmin, createCategory, updateCategory, deleteCategory, getCategoriesWithItemCount } from '@/lib/actions';
 
@@ -12,11 +12,12 @@ interface Category {
   itemCount: number;
 }
 
-interface Admin {
+interface AdminData {
   id: string;
   username: string;
-  email?: string;
+  email: string | null;
   createdAt: Date;
+  isAdmin?: boolean;
 }
 
 export default function AdminPage() {
@@ -25,7 +26,7 @@ export default function AdminPage() {
   const [isInitializing, setIsInitializing] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  const [adminData, setAdminData] = useState<any>(null);
+  const [adminData, setAdminData] = useState<AdminData | null>(null);
   
   // États pour les catégories
   const [categories, setCategories] = useState<Category[]>([]);
@@ -88,15 +89,9 @@ export default function AdminPage() {
     
     setIsInitializing(false);
     console.log('🔍 [ADMIN] Initialisation terminée, isLoggedIn:', isLoggedIn);
-  }, []);
-
-  useEffect(() => {
-    if (isLoggedIn) {
-      loadCategories();
-    }
   }, [isLoggedIn]);
 
-  const loadCategories = async () => {
+  const loadCategories = useCallback(async () => {
     try {
       const result = await getCategoriesWithItemCount();
       if (result.success && result.categories) {
@@ -108,7 +103,13 @@ export default function AdminPage() {
     } catch (error) {
       console.error('Erreur lors du chargement des catégories:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      loadCategories();
+    }
+  }, [isLoggedIn, loadCategories]);
 
 
 
@@ -121,7 +122,7 @@ export default function AdminPage() {
       const result = await authenticateAdmin(username, password);
       console.log('🔍 Résultat de l\'authentification:', result);
       
-      if (result.success) {
+      if (result.success && result.admin) {
         console.log('✅ Connexion réussie !');
         setIsLoggedIn(true);
         setAdminData(result.admin);
@@ -160,7 +161,7 @@ export default function AdminPage() {
       } else {
         setMessage(`❌ Erreur: ${result.error}`);
       }
-    } catch (error) {
+    } catch {
       setMessage('❌ Erreur lors de la création de la catégorie');
     } finally {
       setIsLoading(false);
@@ -188,7 +189,7 @@ export default function AdminPage() {
         setMessage(`❌ Erreur: ${result.error}`);
       }
     } catch (error) {
-      setMessage('❌ Erreur lors de la mise à jour de la catégorie');
+      setMessage(`❌ Erreur lors de la mise à jour de la catégorie: ${error}`);
     } finally {
       setIsLoading(false);
     }
@@ -209,7 +210,7 @@ export default function AdminPage() {
         setMessage(`❌ Erreur: ${result.error}`);
       }
     } catch (error) {
-      setMessage('❌ Erreur lors de la suppression de la catégorie');
+      setMessage(`❌ Erreur lors de la suppression de la catégorie: ${error}`);
     } finally {
       setIsLoading(false);
     }
@@ -264,7 +265,7 @@ export default function AdminPage() {
             }} className="space-y-6">
               <div>
                 <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                  Nom d'utilisateur
+                  Nom d&apos;utilisateur
                 </label>
                 <input
                   id="username"
@@ -313,7 +314,7 @@ export default function AdminPage() {
                 href="/"
                 className="text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
               >
-                ← Retour à l'accueil
+                ← Retour à l&apos;accueil
               </Link>
             </div>
           </div>

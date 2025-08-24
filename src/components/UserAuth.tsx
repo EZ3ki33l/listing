@@ -32,9 +32,13 @@ export default function UserAuth({ onLogin, onClose }: UserAuthProps) {
         result = await registerUser(formData.username, formData.password, formData.email || undefined);
       }
 
-      if (result.success) {
+      if (result.success && result.user) {
         if (isLogin && 'isAdmin' in result.user) {
-          onLogin(result.user);
+          onLogin({
+            ...result.user,
+            email: result.user.email || undefined,
+            isAdmin: Boolean(result.user.isAdmin)
+          });
         } else if (!isLogin) {
           // Après inscription, passer en mode connexion
           setIsLogin(true);
@@ -45,7 +49,7 @@ export default function UserAuth({ onLogin, onClose }: UserAuthProps) {
         setError(result.error || 'Une erreur est survenue');
       }
     } catch (error) {
-      setError('Une erreur est survenue');
+      setError(`Une erreur est survenue: ${error}`);
     } finally {
       setIsLoading(false);
     }
@@ -70,7 +74,7 @@ export default function UserAuth({ onLogin, onClose }: UserAuthProps) {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                Nom d'utilisateur
+                Nom d&apos;utilisateur
               </label>
               <input
                 id="username"

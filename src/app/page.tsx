@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import EventCountdown from '@/components/EventCountdown';
 import Link from 'next/link';
 import { getAllActiveEvents, leaveSharedEvent } from '@/lib/actions';
 import NotificationToast from '@/components/NotificationToast';
 import ConfirmModal from '@/components/ConfirmModal';
 import UserMenu from '@/components/UserMenu';
+import UserAuth from '@/components/UserAuth';
 
 interface Event {
   id: string;
@@ -33,6 +34,7 @@ export default function HomePage() {
     eventId: null,
     eventName: ''
   });
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
     // Vérifier si l'utilisateur est connecté
@@ -47,21 +49,67 @@ export default function HomePage() {
     }
     // Marquer l'initialisation comme terminée
     setIsInitializing(false);
-  }, []);
 
-  useEffect(() => {
-    // Attendre que l'initialisation soit terminée
-    if (!isInitializing) {
-      // Charger les listes d'achats seulement si l'utilisateur est connecté
-      if (userId !== null) {
-        loadEvents();
-      } else {
-        setIsLoading(false);
+    // Écouter les changements du localStorage pour la déconnexion
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'user') {
+        if (e.newValue === null) {
+          // L'utilisateur s'est déconnecté
+          setUserId(null);
+          setEvents([]);
+        } else if (e.newValue) {
+          // L'utilisateur s'est connecté
+          try {
+            const user = JSON.parse(e.newValue);
+            setUserId(user.id);
+          } catch (error) {
+            console.error('Erreur lors de la lecture des données utilisateur:', error);
+          }
+        }
       }
-    }
-  }, [userId, isInitializing]);
+    };
 
-  const loadEvents = async () => {
+    // Écouter les changements du localStorage (pour les onglets multiples)
+    window.addEventListener('storage', handleStorageChange);
+
+    // Écouter les changements du localStorage dans le même onglet
+    const handleLocalStorageChange = () => {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser === null && userId !== null) {
+        // L'utilisateur s'est déconnecté
+        setUserId(null);
+        setEvents([]);
+      } else if (storedUser && userId === null) {
+        // L'utilisateur s'est connecté
+        try {
+          const user = JSON.parse(storedUser);
+          setUserId(user.id);
+        } catch (error) {
+          console.error('Erreur lors de la lecture des données utilisateur:', error);
+        }
+      }
+    };
+
+    // Écouter l'événement personnalisé de déconnexion
+    const handleUserLogout = () => {
+      setUserId(null);
+      setEvents([]);
+    };
+
+    // Créer un intervalle pour vérifier les changements du localStorage
+    const interval = setInterval(handleLocalStorageChange, 100);
+
+    // Ajouter l'écouteur d'événement pour la déconnexion
+    window.addEventListener('userLogout', handleUserLogout);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('userLogout', handleUserLogout);
+      clearInterval(interval);
+    };
+  }, [userId]);
+
+  const loadEvents = useCallback(async () => {
     try {
       // Récupérer les événements de l'utilisateur connecté
       const result = await getAllActiveEvents(userId || undefined);
@@ -74,7 +122,19 @@ export default function HomePage() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    // Attendre que l'initialisation soit terminée
+    if (!isInitializing) {
+      // Charger les listes d'achats seulement si l'utilisateur est connecté
+      if (userId !== null) {
+        loadEvents();
+      } else {
+        setIsLoading(false);
+      }
+    }
+  }, [userId, isInitializing, loadEvents]);
 
   const handleLeaveEvent = (eventId: string, eventName: string) => {
     setConfirmModal({
@@ -120,6 +180,17 @@ export default function HomePage() {
 
   const cancelLeaveEvent = () => {
     setConfirmModal({ isOpen: false, eventId: null, eventName: '' });
+  };
+
+  const handleLogin = (userData: { id: string; username: string; email?: string; isAdmin: boolean }) => {
+    // Mettre à jour l'état local avec les données de l'utilisateur
+    setUserId(userData.id);
+    // Stocker dans localStorage
+    localStorage.setItem('user', JSON.stringify(userData));
+    // Fermer la modal
+    setShowAuthModal(false);
+    // Recharger les événements
+    loadEvents();
   };
 
   // Séparer les événements par type (possédés vs partagés)
@@ -211,11 +282,8 @@ export default function HomePage() {
     };
   });
 
-  // Filtrer et trier les événements
-  const eventsWithDate = eventsWithCountdown.filter(event => event.daysUntil !== null);
-  
-  // Trier par nombre de jours restants
-  const sortedEvents = eventsWithDate.sort((a, b) => (a.daysUntil || 0) - (b.daysUntil || 0));
+
+
 
   // Afficher un loader pendant l'initialisation pour éviter le clipping
   if (isInitializing) {
@@ -254,7 +322,7 @@ export default function HomePage() {
         </header>
       )}
 
-      <div className="container mx-auto px-4 py-8">
+      <div className="max-w-7xl mx-auto px-4 py-8">
         {/* Affichage des notifications personnalisées */}
         {notification && (
           <NotificationToast
@@ -367,12 +435,7 @@ export default function HomePage() {
                 </div>
               </div>
             )}
-          </>
-        )}
 
-        {/* Affichage des événements sans date (seulement si connecté) */}
-        {userId && events.length > 0 && (
-          <>
             {/* Mes événements sans date */}
             {ownedEvents.filter(event => !event.hasTargetDate || !event.targetDate).length > 0 && (
               <div className="mb-16">
@@ -423,6 +486,7 @@ export default function HomePage() {
           </>
         )}
 
+
         {/* Message quand aucun événement n'est configuré ou utilisateur non connecté */}
         {!userId ? (
           // Utilisateur non connecté - Hauteur minimale pour éviter le clipping
@@ -436,12 +500,12 @@ export default function HomePage() {
                 Créez un compte ou connectez-vous pour organiser vos événements
               </p>
               <div className="space-y-4">
-                <Link
-                  href="/user"
+                <button
+                  onClick={() => setShowAuthModal(true)}
                   className="inline-block bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white px-6 py-3 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
                 >
                   🔑 Se connecter
-                </Link>
+                </button>
               </div>
             </div>
           </div>
@@ -467,6 +531,11 @@ export default function HomePage() {
 
 
       </div>
+
+      {/* Modal de connexion */}
+      {showAuthModal && (
+        <UserAuth onLogin={handleLogin} onClose={() => setShowAuthModal(false)} />
+      )}
     </div>
   );
 }
