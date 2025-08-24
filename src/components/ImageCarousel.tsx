@@ -17,6 +17,7 @@ interface ImageCarouselProps {
 
 export default function ImageCarousel({ photos, className = '' }: ImageCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [imageError, setImageError] = useState(false);
 
   if (!photos || photos.length === 0) {
     return (
@@ -28,25 +29,48 @@ export default function ImageCarousel({ photos, className = '' }: ImageCarouselP
 
   const nextPhoto = () => {
     setCurrentIndex((prev) => (prev + 1) % photos.length);
+    setImageError(false); // Reset l'erreur lors du changement de photo
   };
 
   const prevPhoto = () => {
     setCurrentIndex((prev) => (prev - 1 + photos.length) % photos.length);
+    setImageError(false); // Reset l'erreur lors du changement de photo
   };
 
   const goToPhoto = (index: number) => {
     setCurrentIndex(index);
+    setImageError(false); // Reset l'erreur lors du changement de photo
   };
+
+  const handleImageError = () => {
+    setImageError(true);
+  };
+
+  const currentPhoto = photos[currentIndex];
 
   return (
     <div className={`relative ${className}`}>
       {/* Image principale */}
       <div className="relative overflow-hidden rounded-lg">
-        <Image
-          src={photos[currentIndex].imageUrl}
-          alt={photos[currentIndex].altText || `Photo ${currentIndex + 1}`}
-          className="w-full h-48 object-cover"
-        />
+        {!imageError ? (
+          <Image
+            src={currentPhoto.imageUrl}
+            alt={currentPhoto.altText || `Photo ${currentIndex + 1}`}
+            className="w-full h-48 object-cover"
+            width={400}
+            height={192}
+            onError={handleImageError}
+            unoptimized={true} // Désactive l'optimisation pour les images externes
+          />
+        ) : (
+          // Fallback avec balise img standard
+          <Image
+            src={currentPhoto.imageUrl}
+            alt={currentPhoto.altText || `Photo ${currentIndex + 1}`}
+            className="w-full h-48 object-cover"
+            onError={handleImageError}
+          />
+        )}
         
         {/* Boutons de navigation */}
         {photos.length > 1 && (
@@ -96,6 +120,16 @@ export default function ImageCarousel({ photos, className = '' }: ImageCarouselP
       {photos.length > 1 && (
         <div className="absolute top-2 right-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
           {currentIndex + 1} / {photos.length}
+        </div>
+      )}
+
+      {/* Message d'erreur si l'image ne peut pas être chargée */}
+      {imageError && (
+        <div className="absolute inset-0 bg-gray-100 rounded-lg flex items-center justify-center">
+          <div className="text-center">
+            <p className="text-gray-500 text-sm mb-2">❌ Erreur de chargement</p>
+            <p className="text-gray-400 text-xs">URL: {currentPhoto.imageUrl}</p>
+          </div>
         </div>
       )}
     </div>
