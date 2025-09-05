@@ -7,6 +7,7 @@ import Link from 'next/link';
 import CategoryFilter from '@/components/CategoryFilter';
 import SearchBar from '@/components/SearchBar';
 import ImageCarousel from '@/components/ImageCarousel';
+import ThankYouModal from '@/components/ThankYouModal';
 
 interface Event {
   id: string;
@@ -63,6 +64,7 @@ function ListePageContent() {
   const [message, setMessage] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string } | null>(null);
+  const [showThankYouModal, setShowThankYouModal] = useState(false);
   const [newItem, setNewItem] = useState({
     name: '',
     description: '',
@@ -186,6 +188,10 @@ function ListePageContent() {
 
       if (result.success) {
         await loadEventData();
+        // Afficher la modal de remerciement seulement pour les événements d'anniversaire
+        if (isPurchased && event?.eventType === 'anniversaire') {
+          setShowThankYouModal(true);
+        }
       }
     } catch (error) {
       console.error('Erreur lors de la mise à jour du statut:', error);
@@ -703,6 +709,12 @@ function ListePageContent() {
           </div>
         )}
       </main>
+
+      {/* Modal de remerciement */}
+      <ThankYouModal 
+        isOpen={showThankYouModal} 
+        onClose={() => setShowThankYouModal(false)} 
+      />
     </div>
   );
 }

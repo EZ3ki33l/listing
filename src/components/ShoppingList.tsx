@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import ImageCarousel from './ImageCarousel';
+import ThankYouModal from './ThankYouModal';
 
 interface Photo {
   id: string;
@@ -23,17 +24,23 @@ interface ShoppingItem {
 
 interface ShoppingListProps {
   eventName: string;
+  eventType: string;
   items: ShoppingItem[];
   isAdmin: boolean;
   onItemToggle?: (itemId: string, isPurchased: boolean, purchaserName?: string) => void;
 }
 
-export default function ShoppingList({ eventName, items, isAdmin, onItemToggle }: ShoppingListProps) {
+export default function ShoppingList({ eventName, eventType, items, isAdmin, onItemToggle }: ShoppingListProps) {
   const [purchaserName, setPurchaserName] = useState('');
+  const [showThankYouModal, setShowThankYouModal] = useState(false);
 
   const handleItemToggle = (itemId: string, isPurchased: boolean, purchaserName?: string) => {
     if (onItemToggle) {
       onItemToggle(itemId, isPurchased, purchaserName);
+      // Afficher la modal de remerciement seulement pour les événements d'anniversaire
+      if (isPurchased && eventType === 'anniversaire') {
+        setShowThankYouModal(true);
+      }
     }
   };
 
@@ -213,6 +220,12 @@ export default function ShoppingList({ eventName, items, isAdmin, onItemToggle }
           </div>
         </div>
       )}
+
+      {/* Modal de remerciement */}
+      <ThankYouModal 
+        isOpen={showThankYouModal} 
+        onClose={() => setShowThankYouModal(false)} 
+      />
     </div>
   );
 }
