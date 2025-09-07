@@ -17,6 +17,8 @@ interface Event {
   hasTargetDate: boolean;
   isPrivate: boolean;
   isActive: boolean;
+  isOwned?: boolean;
+  canEdit?: boolean;
   owner: {
     id: string;
     username: string;
@@ -127,17 +129,17 @@ function ListePageContent() {
 
   // Vérifier si l'utilisateur actuel est le propriétaire de l'événement
   const isOwner = () => {
-    return currentUser && event && currentUser.id === event.owner.id;
+    return event?.isOwned || false;
   };
 
   // Vérifier si l'utilisateur actuel peut ajouter des articles
   const canAddItems = () => {
-    return isOwner();
+    return event?.canEdit || false;
   };
 
   // Vérifier si l'utilisateur actuel peut supprimer des articles
   const canDeleteItems = () => {
-    return isOwner();
+    return event?.canEdit || false;
   };
 
   const handleAddItem = async (e: React.FormEvent) => {

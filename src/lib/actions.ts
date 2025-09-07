@@ -291,6 +291,10 @@ export async function getEvent(eventId: string, userId?: string) {
       where: whereClause,
       include: {
         owner: true,
+        shares: {
+          where: { userId },
+          select: { canEdit: true }
+        },
         items: {
           include: {
             photos: {
@@ -306,7 +310,18 @@ export async function getEvent(eventId: string, userId?: string) {
       return { success: false, error: 'Événement non trouvé ou accès non autorisé' };
     }
 
-    return { success: true, event };
+    // Déterminer si l'utilisateur peut modifier l'événement
+    const isOwner = event.ownerId === userId;
+    const canEdit = isOwner || (event.shares.length > 0 && event.shares[0].canEdit);
+
+    // Ajouter les informations de permission à l'événement
+    const eventWithPermissions = {
+      ...event,
+      isOwned: isOwner,
+      canEdit: canEdit
+    };
+
+    return { success: true, event: eventWithPermissions };
   } catch (error) {
     console.error('Erreur lors de la récupération de l\'événement:', error);
     return { success: false, error: 'Erreur lors de la récupération de l\'événement' };
