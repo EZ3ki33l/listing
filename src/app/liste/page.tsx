@@ -589,20 +589,25 @@ function ListePageContent() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {pendingItems.map((item) => (
-                <div key={item.id} id={`item-${item.id}`} className="bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-all duration-300">
+              {pendingItems.map((item, index) => (
+                <div key={item.id} id={`item-${item.id}`} className="bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-full">
                   {/* Photos */}
                   {item.photos && item.photos.length > 0 && (
                     <div className="mb-4">
-                      <ImageCarousel photos={item.photos.map(photo => ({
-                        ...photo,
-                        altText: photo.altText || undefined
-                      }))} className="h-48" />
+                      <ImageCarousel 
+                        photos={item.photos.map(photo => ({
+                          ...photo,
+                          altText: photo.altText || undefined
+                        }))} 
+                        className="h-48" 
+                        priority={index === 0}
+                        isAboveFold={index < 3}
+                      />
                     </div>
                   )}
                   
                   {/* Informations de l'article */}
-                  <div className="space-y-3">
+                  <div className="flex flex-col flex-grow space-y-3">
                     <div className="flex justify-between items-start">
                       <h3 className="font-medium text-gray-800 text-lg">{item.name}</h3>
                       {item.category && (
@@ -623,19 +628,12 @@ function ListePageContent() {
                       <p className="text-green-600 font-semibold text-sm">💰 {item.price}€</p>
                     )}
                     
-                    {item.purchaseUrl && (
-                      <a
-                        href={item.purchaseUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
-                      >
-                        🔗 Voir le produit
-                      </a>
-                    )}
+                    {/* Spacer pour pousser les boutons en bas */}
+                    <div className="flex-grow"></div>
                     
                     {/* Boutons d'action */}
-                    <div className="flex gap-2 pt-2">
+                    <div className="flex gap-2 pt-2 mt-auto">
+                      {/* Bouton Acheté */}
                       <button
                         onClick={() => handleToggleItem(item.id, true)}
                         className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
@@ -643,6 +641,22 @@ function ListePageContent() {
                         ✅ Acheté
                       </button>
                       
+                      {/* Bouton Acheter */}
+                      {item.purchaseUrl && (
+                        <a
+                          href={item.purchaseUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          🛒 Acheter
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      )}
+                      
+                      {/* Bouton Supprimer */}
                       {canDeleteItems() && (
                         <button
                           onClick={() => handleDeleteItem(item.id)}
@@ -667,20 +681,25 @@ function ListePageContent() {
             </h2>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {purchasedItems.map((item) => (
-                <div key={item.id} id={`item-${item.id}`} className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200 p-4 shadow-sm">
+              {purchasedItems.map((item, index) => (
+                <div key={item.id} id={`item-${item.id}`} className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200 p-4 shadow-sm flex flex-col h-full">
                   {/* Photos */}
                   {item.photos && item.photos.length > 0 && (
                     <div className="mb-4">
-                      <ImageCarousel photos={item.photos.map(photo => ({
-                        ...photo,
-                        altText: photo.altText || undefined
-                      }))} className="h-48" />
+                      <ImageCarousel 
+                        photos={item.photos.map(photo => ({
+                          ...photo,
+                          altText: photo.altText || undefined
+                        }))} 
+                        className="h-48" 
+                        priority={index === 0}
+                        isAboveFold={index < 3}
+                      />
                     </div>
                   )}
                   
                   {/* Informations de l'article */}
-                  <div className="space-y-3">
+                  <div className="flex flex-col flex-grow space-y-3">
                     <div className="flex justify-between items-start">
                       <h3 className="font-medium text-gray-800 text-lg line-through">{item.name}</h3>
                       {item.category && (
@@ -701,26 +720,35 @@ function ListePageContent() {
                       ✅ Acheté par {item.purchasedBy} le {item.purchasedAt ? new Date(item.purchasedAt).toLocaleDateString('fr-FR') : 'récemment'}
                     </p>
                     
-                    {item.purchaseUrl && (
-                      <a
-                        href={item.purchaseUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm font-medium"
-                      >
-                        🔗 Voir le produit
-                      </a>
-                    )}
+                    {/* Spacer pour pousser les boutons en bas */}
+                    <div className="flex-grow"></div>
                     
                     {/* Boutons d'action */}
-                    <div className="flex gap-2 pt-2">
+                    <div className="flex gap-2 pt-2 mt-auto">
+                      {/* Bouton Acheter */}
+                      {item.purchaseUrl && (
+                        <a
+                          href={item.purchaseUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          🛒 Acheter
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                          </svg>
+                        </a>
+                      )}
+                      
+                      {/* Bouton Annuler achat */}
                       <button
                         onClick={() => handleToggleItem(item.id, false)}
                         className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
                       >
-                        🔄 Annuler achat
+                        🔄 Annuler
                       </button>
                       
+                      {/* Bouton Supprimer */}
                       {canDeleteItems() && (
                         <button
                           onClick={() => handleDeleteItem(item.id)}

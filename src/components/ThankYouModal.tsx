@@ -105,6 +105,7 @@ export default function ThankYouModal({ isOpen, onClose }: ThankYouModalProps) {
               <div className="space-y-2 text-center">
                 <p className="text-lg text-gray-600">
                   T&apos;es trop cool d&apos;avoir acheté ça ! 
+                  T&apos;es trop cool d&apos;avoir acheté ça ! 
                 </p>
               </div>
 

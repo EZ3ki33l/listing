@@ -77,12 +77,12 @@ export default function ShoppingList({ eventName, eventType, items, isAdmin, onI
           </div>
         ) : (
           <div className="space-y-6">
-            {remainingItems.map((item) => (
+            {remainingItems.map((item, index) => (
               <div key={item.id} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Photos */}
                   <div>
-                    <ImageCarousel photos={item.photos} />
+                    <ImageCarousel photos={item.photos} priority={index === 0} isAboveFold={index < 2} />
                   </div>
                   
                   {/* Informations */}
@@ -97,41 +97,45 @@ export default function ShoppingList({ eventName, eventType, items, isAdmin, onI
                       )}
                     </div>
                     
-                    <div className="flex items-center space-x-3">
-                      {!isAdmin && (
-                        <input
-                          type="text"
-                          placeholder="Votre nom"
-                          value={purchaserName}
-                          onChange={(e) => setPurchaserName(e.target.value)}
-                          className="border border-gray-300 rounded px-3 py-2 text-sm flex-1"
-                        />
-                      )}
-                      <button
-                        onClick={() => handleItemToggle(item.id, true, purchaserName)}
-                        disabled={!isAdmin && !purchaserName.trim()}
-                        className="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
-                      >
-                        Marquer comme acheté
-                      </button>
-                    </div>
-                    
-                    {/* Bouton Acheter */}
-                    {item.purchaseUrl && (
-                      <div className="mt-3">
-                        <a
-                          href={item.purchaseUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                    {/* Boutons d'action */}
+                    <div className="space-y-3">
+                      {/* Bouton Acheté */}
+                      <div className="flex items-center space-x-3">
+                        {!isAdmin && (
+                          <input
+                            type="text"
+                            placeholder="Votre nom"
+                            value={purchaserName}
+                            onChange={(e) => setPurchaserName(e.target.value)}
+                            className="border border-gray-300 rounded px-3 py-2 text-sm flex-1"
+                          />
+                        )}
+                        <button
+                          onClick={() => handleItemToggle(item.id, true, purchaserName)}
+                          disabled={!isAdmin && !purchaserName.trim()}
+                          className="bg-green-500 hover:bg-green-600 disabled:bg-gray-300 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
                         >
-                          🛒 Acheter
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                        </a>
+                          ✅ Acheté
+                        </button>
                       </div>
-                    )}
+                      
+                      {/* Bouton Acheter */}
+                      {item.purchaseUrl && (
+                        <div>
+                          <a
+                            href={item.purchaseUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full justify-center"
+                          >
+                            🛒 Acheter
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -147,12 +151,12 @@ export default function ShoppingList({ eventName, eventType, items, isAdmin, onI
             Achetés ({purchasedItems.length})
           </h2>
           <div className="space-y-6">
-            {purchasedItems.map((item) => (
+            {purchasedItems.map((item, index) => (
               <div key={item.id} className="bg-green-50 border border-green-200 rounded-lg p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Photos */}
                   <div>
-                    <ImageCarousel photos={item.photos} />
+                    <ImageCarousel photos={item.photos} priority={index === 0} isAboveFold={index < 2} />
                   </div>
                   
                   {/* Informations */}
@@ -167,19 +171,46 @@ export default function ShoppingList({ eventName, eventType, items, isAdmin, onI
                       )}
                     </div>
                     
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm text-gray-600">
-                          Acheté par: <span className="font-medium">{item.purchasedBy || 'Anonyme'}</span>
-                        </p>
+                    {/* Informations d'achat */}
+                    <div className="mb-4">
+                      <p className="text-sm text-gray-600">
+                        Acheté par: <span className="font-medium">{item.purchasedBy || 'Anonyme'}</span>
+                      </p>
+                    </div>
+                    
+                    {/* Boutons d'action */}
+                    <div className="space-y-3">
+                      {/* Bouton Acheté (déjà acheté) */}
+                      <div className="flex items-center justify-center">
+                        <div className="bg-green-100 text-green-800 px-4 py-2 rounded-lg text-sm font-medium border border-green-200">
+                          ✅ Déjà acheté
+                        </div>
                       </div>
                       
+                      {/* Bouton Acheter */}
+                      {item.purchaseUrl && (
+                        <div>
+                          <a
+                            href={item.purchaseUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors w-full justify-center"
+                          >
+                            🛒 Acheter
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </a>
+                        </div>
+                      )}
+                      
+                      {/* Boutons d'annulation */}
                       <div className="flex space-x-2">
                         {/* Bouton d'annulation pour l'acheteur ou l'admin */}
                         {(isAdmin || purchaserName === item.purchasedBy) && (
                           <button
                             onClick={() => handleCancelPurchase(item.id)}
-                            className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                            className="bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex-1"
                           >
                             Annuler l&apos;achat
                           </button>
@@ -189,30 +220,13 @@ export default function ShoppingList({ eventName, eventType, items, isAdmin, onI
                         {isAdmin && (
                           <button
                             onClick={() => handleItemToggle(item.id, false)}
-                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors flex-1"
                           >
                             Annuler (Admin)
                           </button>
                         )}
                       </div>
                     </div>
-                    
-                    {/* Bouton Acheter (pour référence) */}
-                    {item.purchaseUrl && (
-                      <div className="mt-3">
-                        <a
-                          href={item.purchaseUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-2 bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                        >
-                          🔗 Voir le lien
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
-                        </a>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
