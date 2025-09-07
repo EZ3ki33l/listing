@@ -79,17 +79,19 @@ function ListePageContent() {
   const [searchQuery] = useState('');
 
   const loadEventData = useCallback(async () => {
-    if (!eventId) return;
+    if (!eventId || !currentUser) return;
     
     try {
       setIsLoading(true);
       const [eventResult, categoriesResult] = await Promise.all([
-        getEvent(eventId),
+        getEvent(eventId, currentUser.id),
         getCategories()
       ]);
 
       if (eventResult.success && eventResult.event) {
         setEvent(eventResult.event);
+      } else {
+        setMessage(`❌ ${eventResult.error || 'Erreur lors du chargement de l\'événement'}`);
       }
 
       if (categoriesResult.success && categoriesResult.categories) {
@@ -101,7 +103,7 @@ function ListePageContent() {
     } finally {
       setIsLoading(false);
     }
-  }, [eventId]);
+  }, [eventId, currentUser]);
 
   useEffect(() => {
     // Vérifier si l'utilisateur est connecté
@@ -114,11 +116,14 @@ function ListePageContent() {
         console.error('Erreur lors de la lecture des données utilisateur:', error);
       }
     }
+  }, []);
 
-    if (eventId) {
+  useEffect(() => {
+    // Charger les données de l'événement seulement si l'utilisateur est connecté et qu'il y a un eventId
+    if (currentUser && eventId) {
       loadEventData();
     }
-  }, [eventId, loadEventData]);
+  }, [currentUser, eventId, loadEventData]);
 
   // Vérifier si l'utilisateur actuel est le propriétaire de l'événement
   const isOwner = () => {
@@ -239,6 +244,27 @@ function ListePageContent() {
       )
     }));
   };
+
+  // Si l'utilisateur n'est pas connecté, afficher un message d'erreur
+  if (!currentUser) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-6xl mb-4">🔐</div>
+          <h1 className="text-2xl font-bold text-gray-800 mb-4">Connexion requise</h1>
+          <p className="text-gray-600 mb-6">
+            Vous devez être connecté pour accéder à cette liste d&apos;achats.
+          </p>
+          <Link
+            href="/"
+            className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
+          >
+            ← Retour à l&apos;accueil
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

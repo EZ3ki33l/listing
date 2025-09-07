@@ -270,10 +270,25 @@ export async function updateEvent(eventId: string, data: {
   }
 }
 
-export async function getEvent(eventId: string) {
+export async function getEvent(eventId: string, userId?: string) {
   try {
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
+    // Si l'utilisateur n'est pas connecté, ne pas permettre l'accès
+    if (!userId) {
+      return { success: false, error: 'Accès non autorisé' };
+    }
+
+    // Construire la requête avec vérification des permissions
+    const whereClause = {
+      id: eventId,
+      isActive: true,
+      OR: [
+        { ownerId: userId }, // L'utilisateur est propriétaire
+        { shares: { some: { userId } } } // L'événement est partagé avec l'utilisateur
+      ]
+    };
+
+    const event = await prisma.event.findFirst({
+      where: whereClause,
       include: {
         owner: true,
         items: {
@@ -286,6 +301,10 @@ export async function getEvent(eventId: string) {
         },
       },
     });
+
+    if (!event) {
+      return { success: false, error: 'Événement non trouvé ou accès non autorisé' };
+    }
 
     return { success: true, event };
   } catch (error) {
