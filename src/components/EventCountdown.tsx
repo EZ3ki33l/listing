@@ -184,7 +184,7 @@ export default function EventCountdown({
         ) : (
           <div className="text-center py-8">
             <Link
-              href={`/liste?type=${finalEventType}`}
+              href={event?.id ? `/liste?event=${event.id}` : `/liste?type=${finalEventType}`}
               className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
             >
               🛍️ Voir la liste
@@ -243,7 +243,7 @@ export default function EventCountdown({
       ) : (
         <div className="text-center py-8">
           <Link
-            href={`/liste?type=${finalEventType}`}
+            href={event?.id ? `/liste?event=${event.id}` : `/liste?type=${finalEventType}`}
             className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
           >
             🛍️ Voir la liste
