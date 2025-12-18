@@ -102,6 +102,9 @@ export async function authenticateUser(username: string, password: string) {
 
 export async function getUserEvents(userId: string) {
   try {
+    // Masquer automatiquement les événements récurrents passés (anniversaires, Noël, etc.)
+    await autoHidePastRecurringEvents();
+
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -267,6 +270,158 @@ export async function updateEvent(eventId: string, data: {
   } catch (error) {
     console.error('Erreur lors de la modification de l\'événement:', error);
     return { success: false, error: 'Erreur lors de la modification de l\'événement' };
+  }
+}
+
+// Action pour masquer un événement
+export async function hideEvent(eventId: string, userId: string) {
+  try {
+    // Vérifier que l'utilisateur est propriétaire de l'événement
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: { owner: true }
+    });
+
+    if (!event) {
+      return { success: false, error: 'Événement non trouvé' };
+    }
+
+    if (event.ownerId !== userId) {
+      return { success: false, error: 'Vous n\'êtes pas autorisé à masquer cet événement' };
+    }
+
+    const updatedEvent = await prisma.event.update({
+      where: { id: eventId },
+      data: { isHidden: true },
+    });
+
+    revalidatePath('/');
+    revalidatePath('/user');
+    return { success: true, event: updatedEvent };
+  } catch (error) {
+    console.error('Erreur lors du masquage de l\'événement:', error);
+    return { success: false, error: 'Erreur lors du masquage de l\'événement' };
+  }
+}
+
+// Action pour réactiver un événement (avec incrémentation d'année pour les anniversaires)
+export async function reactivateEvent(eventId: string, userId: string) {
+  try {
+    // Vérifier que l'utilisateur est propriétaire de l'événement
+    const event = await prisma.event.findUnique({
+      where: { id: eventId },
+      include: { owner: true }
+    });
+
+    if (!event) {
+      return { success: false, error: 'Événement non trouvé' };
+    }
+
+    if (event.ownerId !== userId) {
+      return { success: false, error: 'Vous n\'êtes pas autorisé à réactiver cet événement' };
+    }
+
+    let updateData: { isHidden: boolean; targetDate?: Date } = { isHidden: false };
+
+    // Si c'est un anniversaire ou Noël avec une date, vérifier si la date de cette année est passée avant d'incrémenter
+    if ((event.eventType === 'anniversaire' || event.eventType === 'noel') && event.targetDate && event.hasTargetDate) {
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const eventDate = new Date(event.targetDate);
+      const eventDateThisYear = new Date(today.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+      
+      console.log(`🔍 [reactivateEvent] Événement: ${event.name}, Date stockée: ${eventDate.toISOString()}, Date cette année: ${eventDateThisYear.toISOString()}, Aujourd'hui: ${today.toISOString()}`);
+      
+      // Si la date de cette année est passée, incrémenter l'année de +1 par rapport à l'année actuelle
+      if (eventDateThisYear < today) {
+        const newYear = today.getFullYear() + 1;
+        const newDate = new Date(today.getFullYear() + 1, eventDate.getMonth(), eventDate.getDate());
+        updateData.targetDate = newDate;
+        console.log(`✅ [reactivateEvent] Date passée, incrémentation à: ${newDate.toISOString()}`);
+      } else {
+        console.log(`✅ [reactivateEvent] Date pas encore passée, réactivation sans modification de date`);
+      }
+      // Sinon, on garde la date actuelle (juste réactiver sans modifier la date)
+    }
+
+    console.log(`🔍 [reactivateEvent] Données de mise à jour:`, updateData);
+    const updatedEvent = await prisma.event.update({
+      where: { id: eventId },
+      data: updateData,
+    });
+    console.log(`✅ [reactivateEvent] Événement mis à jour: isHidden=${updatedEvent.isHidden}, targetDate=${updatedEvent.targetDate?.toISOString()}`);
+
+    revalidatePath('/');
+    revalidatePath('/user');
+    return { success: true, event: updatedEvent };
+  } catch (error) {
+    console.error('Erreur lors de la réactivation de l\'événement:', error);
+    return { success: false, error: 'Erreur lors de la réactivation de l\'événement' };
+  }
+}
+
+// Fonction pour masquer automatiquement les événements récurrents passés (anniversaires, Noël, etc.)
+async function autoHidePastRecurringEvents() {
+  try {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    // Trouver tous les événements récurrents actifs et non masqués avec une date passée
+    const pastRecurringEvents = await prisma.event.findMany({
+      where: {
+        eventType: { in: ['anniversaire', 'noel'] },
+        isActive: true,
+        isHidden: false,
+        hasTargetDate: true,
+        targetDate: { not: null }
+      }
+    });
+
+    console.log(`🔍 [autoHidePastRecurringEvents] Trouvé ${pastRecurringEvents.length} événement(s) récurrent(s) à vérifier`);
+
+    // Filtrer ceux dont la date est passée (en comparant seulement le jour et le mois)
+    const eventsToHide = pastRecurringEvents.filter(event => {
+      if (!event.targetDate) return false;
+      const eventDate = new Date(event.targetDate);
+      
+      // Si la date stockée est dans le futur, ne pas masquer
+      if (eventDate > today) {
+        console.log(`✅ [autoHidePastRecurringEvents] Pas de masquage pour ${event.name} (${event.id}): date stockée ${eventDate.toISOString()} est dans le futur`);
+        return false;
+      }
+      
+      // Comparer seulement le jour et le mois avec cette année
+      const eventDateThisYear = new Date(today.getFullYear(), eventDate.getMonth(), eventDate.getDate());
+      
+      // Si la date de cette année est passée, masquer l'événement
+      const shouldHide = eventDateThisYear < today;
+      if (shouldHide) {
+        console.log(`🔍 [autoHidePastRecurringEvents] Masquage de ${event.name} (${event.id}): date stockée ${eventDate.toISOString()}, date cette année ${eventDateThisYear.toISOString()} < aujourd'hui ${today.toISOString()}`);
+      } else {
+        console.log(`✅ [autoHidePastRecurringEvents] Pas de masquage pour ${event.name} (${event.id}): date cette année ${eventDateThisYear.toISOString()} >= aujourd'hui ${today.toISOString()}`);
+      }
+      return shouldHide;
+    });
+
+    // Masquer tous les événements récurrents passés
+    if (eventsToHide.length > 0) {
+      await prisma.event.updateMany({
+        where: {
+          id: { in: eventsToHide.map(e => e.id) }
+        },
+        data: {
+          isHidden: true
+        }
+      });
+      const birthdaysCount = eventsToHide.filter(e => e.eventType === 'anniversaire').length;
+      const noelCount = eventsToHide.filter(e => e.eventType === 'noel').length;
+      console.log(`✅ ${eventsToHide.length} événement(s) récurrent(s) masqué(s) automatiquement (${birthdaysCount} anniversaire(s), ${noelCount} Noël)`);
+    }
+
+    return { success: true, hiddenCount: eventsToHide.length };
+  } catch (error) {
+    console.error('Erreur lors du masquage automatique des événements récurrents:', error);
+    return { success: false, error: 'Erreur lors du masquage automatique' };
   }
 }
 
@@ -696,10 +851,21 @@ export async function ensureAdminExists() {
 }
 
 // Action pour récupérer tous les événements actifs (sécurisée)
+// Note: Cette fonction filtre les événements masqués pour la page d'accueil
 export async function getAllActiveEvents(userId?: string) {
   try {
+    // Masquer automatiquement les événements récurrents passés (anniversaires, Noël, etc.)
+    await autoHidePastRecurringEvents();
+
     // Construire la requête de base
-    const whereClause: { isActive: boolean; OR?: Array<{ ownerId: string } | { shares: { some: { userId: string } } }> } = { isActive: true };
+    const whereClause: { 
+      isActive: boolean; 
+      isHidden?: boolean;
+      OR?: Array<{ ownerId: string } | { shares: { some: { userId: string } } }> 
+    } = { 
+      isActive: true,
+      isHidden: false // Ne pas afficher les événements masqués sur la page d'accueil
+    };
     
     // Si l'utilisateur n'est pas connecté, ne montrer AUCUN événement
     if (!userId) {

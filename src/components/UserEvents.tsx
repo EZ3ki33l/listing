@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getUserEvents, shareEvent, createEvent, updateEvent } from '@/lib/actions';
+import { getUserEvents, shareEvent, createEvent, updateEvent, hideEvent, reactivateEvent } from '@/lib/actions';
 import Link from 'next/link';
 
 
@@ -18,6 +18,7 @@ interface Event {
   hasTargetDate: boolean;
   isPrivate: boolean;
   isActive: boolean;
+  isHidden: boolean;
   isOwned: boolean;
   canEdit: boolean;
   sharedBy?: string;
@@ -216,6 +217,36 @@ export default function UserEvents({ userId }: UserEventsProps) {
     });
   };
 
+  const handleHideEvent = async (eventId: string) => {
+    try {
+      const result = await hideEvent(eventId, userId);
+      if (result.success) {
+        setMessage('✅ Événement masqué avec succès !');
+        await loadEvents();
+        setTimeout(() => setMessage(''), 3000);
+      } else {
+        setMessage(`❌ ${result.error}`);
+      }
+    } catch (error) {
+      setMessage(`❌ Erreur lors du masquage de l'événement: ${error}`);
+    }
+  };
+
+  const handleReactivateEvent = async (eventId: string) => {
+    try {
+      const result = await reactivateEvent(eventId, userId);
+      if (result.success) {
+        setMessage('✅ Événement réactivé avec succès !');
+        await loadEvents();
+        setTimeout(() => setMessage(''), 3000);
+      } else {
+        setMessage(`❌ ${result.error}`);
+      }
+    } catch (error) {
+      setMessage(`❌ Erreur lors de la réactivation de l'événement: ${error}`);
+    }
+  };
+
   // Afficher un loader pendant l'initialisation pour éviter le clipping
   if (isInitializing) {
     return (
@@ -238,10 +269,9 @@ export default function UserEvents({ userId }: UserEventsProps) {
   const ownedEvents = events.filter(event => event.isOwned);
   const sharedEvents = events.filter(event => !event.isOwned);
   
-  // Debug: afficher les événements et leurs flags
-  console.log('🔍 [UserEvents] Tous les événements:', events);
-  console.log('🔍 [UserEvents] Événements personnels (owned):', ownedEvents);
-  console.log('🔍 [UserEvents] Événements partagés (shared):', sharedEvents);
+  // Séparer les événements visibles et masqués
+  const visibleOwnedEvents = ownedEvents.filter(event => !event.isHidden);
+  const hiddenOwnedEvents = ownedEvents.filter(event => event.isHidden);
 
   return (
     <div className="space-y-8">
@@ -261,8 +291,13 @@ export default function UserEvents({ userId }: UserEventsProps) {
           <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
             🏠 Mes événements
             <span className="text-sm font-normal text-gray-500 bg-blue-100 px-3 py-1 rounded-full">
-              {ownedEvents.length}
+              {visibleOwnedEvents.length}
             </span>
+            {hiddenOwnedEvents.length > 0 && (
+              <span className="text-sm font-normal text-gray-500 bg-gray-200 px-3 py-1 rounded-full">
+                {hiddenOwnedEvents.length} masqué(s)
+              </span>
+            )}
           </h3>
           
           <button
@@ -288,50 +323,108 @@ export default function UserEvents({ userId }: UserEventsProps) {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {ownedEvents.map((event) => (
-              <div key={event.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-300">
-                <div className="flex justify-between items-start mb-4">
-                  <h4 className="text-lg font-semibold text-gray-800">{event.name}</h4>
-                  <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                    Personnel
+          <>
+            {/* Événements visibles */}
+            {visibleOwnedEvents.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                {visibleOwnedEvents.map((event) => (
+                  <div key={event.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-300">
+                    <div className="flex justify-between items-start mb-4">
+                      <h4 className="text-lg font-semibold text-gray-800">{event.name}</h4>
+                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                        Personnel
+                      </span>
+                    </div>
+                    
+                    <p className="text-sm text-gray-600 mb-4">
+                      Type: {event.eventType} • {event.hasTargetDate && event.targetDate ? 'Avec date' : 'Sans date'}
+                    </p>
+                    
+                    <div className="flex flex-wrap gap-2">
+                      <Link
+                        href={`/liste?event=${event.id}`}
+                        className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300"
+                      >
+                        🛍️ Voir la liste
+                      </Link>
+                      
+                      <button
+                        onClick={() => handleEditEvent(event)}
+                        className="bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300"
+                        title="Modifier cet événement"
+                      >
+                        ✏️
+                      </button>
+                      
+                      <button
+                        onClick={() => {
+                          setSelectedEvent(event);
+                          setShowShareForm(true);
+                        }}
+                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300"
+                        title="Partager cet événement"
+                      >
+                        📤
+                      </button>
+                      
+                      <button
+                        onClick={() => handleHideEvent(event.id)}
+                        className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300"
+                        title="Masquer cet événement"
+                      >
+                        👁️‍🗨️
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Événements masqués */}
+            {hiddenOwnedEvents.length > 0 && (
+              <div className="mt-8">
+                <h4 className="text-xl font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                  👁️‍🗨️ Événements masqués
+                  <span className="text-sm font-normal text-gray-500 bg-gray-200 px-3 py-1 rounded-full">
+                    {hiddenOwnedEvents.length}
                   </span>
-                </div>
-                
-                <p className="text-sm text-gray-600 mb-4">
-                  Type: {event.eventType} • {event.hasTargetDate && event.targetDate ? 'Avec date' : 'Sans date'}
-                </p>
-                
-                <div className="flex gap-2">
-                  <Link
-                    href={`/liste?event=${event.id}`}
-                    className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300"
-                  >
-                    🛍️ Voir la liste
-                  </Link>
-                  
-                  <button
-                    onClick={() => handleEditEvent(event)}
-                    className="bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300"
-                    title="Modifier cet événement"
-                  >
-                    ✏️
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      setSelectedEvent(event);
-                      setShowShareForm(true);
-                    }}
-                    className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300"
-                    title="Partager cet événement"
-                  >
-                    📤
-                  </button>
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {hiddenOwnedEvents.map((event) => (
+                    <div key={event.id} className="bg-gray-50 rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-300 opacity-75">
+                      <div className="flex justify-between items-start mb-4">
+                        <h4 className="text-lg font-semibold text-gray-600">{event.name}</h4>
+                        <span className="text-xs bg-gray-300 text-gray-700 px-2 py-1 rounded-full">
+                          Masqué
+                        </span>
+                      </div>
+                      
+                      <p className="text-sm text-gray-500 mb-4">
+                        Type: {event.eventType} • {event.hasTargetDate && event.targetDate ? 'Avec date' : 'Sans date'}
+                      </p>
+                      
+                      <div className="flex flex-wrap gap-2">
+                        <Link
+                          href={`/liste?event=${event.id}`}
+                          className="flex-1 bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 text-white px-4 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300"
+                        >
+                          🛍️ Voir la liste
+                        </Link>
+                        
+                        <button
+                          onClick={() => handleReactivateEvent(event.id)}
+                          className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300"
+                          title="Réactiver cet événement"
+                        >
+                          {(event.eventType === 'anniversaire' || event.eventType === 'noel') ? '🔄 Réactiver (+1 an)' : '🔄 Réactiver'}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </div>
 
