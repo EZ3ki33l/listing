@@ -321,7 +321,7 @@ export async function reactivateEvent(eventId: string, userId: string) {
       return { success: false, error: 'Vous n\'êtes pas autorisé à réactiver cet événement' };
     }
 
-    let updateData: { isHidden: boolean; targetDate?: Date } = { isHidden: false };
+    const updateData: { isHidden: boolean; targetDate?: Date } = { isHidden: false };
 
     // Si c'est un anniversaire ou Noël avec une date, vérifier si la date de cette année est passée avant d'incrémenter
     if ((event.eventType === 'anniversaire' || event.eventType === 'noel') && event.targetDate && event.hasTargetDate) {
@@ -334,7 +334,6 @@ export async function reactivateEvent(eventId: string, userId: string) {
       
       // Si la date de cette année est passée, incrémenter l'année de +1 par rapport à l'année actuelle
       if (eventDateThisYear < today) {
-        const newYear = today.getFullYear() + 1;
         const newDate = new Date(today.getFullYear() + 1, eventDate.getMonth(), eventDate.getDate());
         updateData.targetDate = newDate;
         console.log(`✅ [reactivateEvent] Date passée, incrémentation à: ${newDate.toISOString()}`);
