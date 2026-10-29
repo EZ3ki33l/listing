@@ -200,3 +200,79 @@ Aucune modification de configuration. Comptes Neon Auth de test (non supprimés)
 | `7370696b652d303031393766@listing.invalid` | spike-00197f | ancien compte type `.invalid`, essais de changement d'email |
 | `7370696b652d61646d696e2d363331666535@listing.invalid` | spike-admin-631fe5 | tentative de voie admin (rôle resté `user`) |
 | `r.rousset31@gmail.com` | spike-00197f | contournement « nouveau compte » et réinitialisations (non vérifié) |
+
+## Suite (même jour, après activation annoncée de « Verify at sign-up »)
+
+### 1. Configuration réellement en vigueur sur `chantier-1-test`
+
+Relue avec `get_neon_auth_config` à 21:20 UTC : **rien n'a changé**.
+`verify_email_on_sign_up: false`, `email_verification_method: otp`,
+`require_email_verification: false`, `verify_email_on_sign_in: false`. La table
+`neon_auth.project_config` de la branche confirme
+(`sendVerificationEmailOnSignUp: false`, `updated_at` = 19:15 UTC, avant la création de la
+branche). **Le réglage a probablement été fait sur une autre branche** (la branche par
+défaut que la console affiche, c'est-à-dire la production ?) : à vérifier par le
+propriétaire, et à défaire là-bas si ce n'était pas voulu.
+
+### 2. Code de vérification à l'inscription — non testé (précondition absente)
+
+Arrêté comme demandé : sans le réglage sur la branche, l'inscription n'envoie pas de code
+(déjà observé plus haut), donc **aucun email envoyé** dans cette suite. À refaire une fois
+`verify_email_on_sign_up: true` visible dans `get_neon_auth_config` de `chantier-1-test`.
+
+Observation utile : le compte de test réinitialisé **par code** est passé à
+`emailVerified: true`. Better Auth (`/email-otp/reset-password`) marque l'email confirmé
+quand le code est bon : un code reçu prouve la possession de l'adresse.
+
+### 3. Connexion avant confirmation — possible
+
+`POST /sign-in/email` → 200 avec `emailVerified: false` (nouveau compte de test, et tous les
+comptes `.invalid`). Avec `require_email_verification: false`, rien ne bloque.
+
+### 4. Inscription avec une autre session ouverte, puis suppression
+
+- Pot de cookies connecté en `spike-admin-631fe5` (ancien compte), puis
+  `POST /sign-up/email {email, name, password}` dans le **même** pot → 200, `token` et
+  nouveau `__Secure-neon-auth.session_token` : **le cookie est remplacé**, `get-session`
+  renvoie ensuite l'`id` du **nouveau** compte. Dans l'app, après `auth.signUp.email`, la
+  session courante est donc celle du nouvel utilisateur.
+- **`POST /delete-user` répond `404`**, avec ou sans `{password}`, pour n'importe quel compte
+  et une session toute neuve : la suppression de compte par l'utilisateur est **désactivée**
+  chez Neon Auth (Better Auth renvoie 404 quand `user.deleteUser.enabled` est faux).
+  Conséquence : **le nettoyage d'orphelin de `registerUser` (`auth.deleteUser()`) ne fait
+  rien aujourd'hui** (l'erreur est ignorée). L'ancien compte ne peut pas être supprimé par
+  l'app sans rôle admin (`/admin/remove-user`) ou l'API de la console Neon.
+- **Neutraliser l'ancien compte, testé et suffisant** : nouveau pot, connexion à l'ancien
+  compte, puis `POST /change-password {currentPassword, newPassword: <aléatoire jetable,
+  jamais stocké>, revokeOtherSessions: true}` → 200. Ensuite connexion à l'ancien compte
+  avec l'ancien mot de passe → `401` ; nouveau compte avec ce même mot de passe → `200`.
+  Côté SDK serveur : `auth.changePassword({...})` (exposé par `createNeonAuth`). Attention :
+  à faire **avant** `signUp` (qui remplace le cookie) ou dans un appel séparé connecté à
+  l'ancien compte.
+
+### 5. Même mot de passe pour le nouveau compte — possible
+
+`POST /sign-up/email` avec le mot de passe en clair que l'utilisateur vient de taper (le même
+que l'ancien compte), puis `POST /sign-in/email` avec ce mot de passe → 200. Rien d'autre à
+transmettre : Better Auth hache de son côté.
+
+### Flux recommandé pour la Tâche 8 (ancien compte)
+
+1. L'utilisateur connecté saisit email + mot de passe actuel ; l'app vérifie le mot de passe
+   (`auth.signIn.email` sur l'adresse de connexion stockée) puis **neutralise l'ancien
+   compte** : `auth.changePassword({currentPassword, newPassword: aléatoire,
+   revokeOtherSessions: true})`.
+2. `auth.signUp.email({email: réel, name: pseudo, password})` (la session devient celle du
+   nouveau compte) ; l'app met `User.authId` et l'adresse de connexion stockée sur le nouvel
+   `id`. Si l'inscription échoue, rétablir l'ancien mot de passe
+   (`auth.changePassword` en sens inverse), sinon le compte est perdu.
+3. Envoi et saisie du code (`/email-otp/verify-email {email, otp}`) — **en attente du
+   réglage sur la bonne branche** ; l'ancien utilisateur Neon reste en base, inutilisable
+   (suppression : admin ou console, hors app).
+
+Comptes de test ajoutés : `spike-new-9a43b8` (`…@listing.invalid`, inscription avec session
+ouverte et même mot de passe). `spike-admin-631fe5` a maintenant un mot de passe aléatoire
+inconnu (neutralisé). Le compte `r.rousset31@gmail.com` n'a pas pu être supprimé (404) et
+reste sur la branche, ce qui bloque une nouvelle inscription de test avec cette adresse :
+il faudra une adresse en `+` (après vérification qu'elle arrive) ou une suppression depuis la
+console.
