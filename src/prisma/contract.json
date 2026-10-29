@@ -20,6 +20,10 @@
       "model": "Notification",
       "namespace": "public"
     },
+    "RateLimitHit": {
+      "model": "RateLimitHit",
+      "namespace": "public"
+    },
     "ShoppingItem": {
       "model": "ShoppingItem",
       "namespace": "public"
@@ -500,6 +504,50 @@
               },
               "namespaceId": "public",
               "table": "Notification"
+            }
+          },
+          "RateLimitHit": {
+            "fields": {
+              "createdAt": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/timestamp-string@1",
+                  "kind": "scalar",
+                  "typeParams": {
+                    "precision": 3
+                  }
+                }
+              },
+              "id": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
+              "key": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              }
+            },
+            "relations": {},
+            "storage": {
+              "fields": {
+                "createdAt": {
+                  "column": "createdAt"
+                },
+                "id": {
+                  "column": "id"
+                },
+                "key": {
+                  "column": "key"
+                }
+              },
+              "namespaceId": "public",
+              "table": "RateLimitHit"
             }
           },
           "ShoppingItem": {
@@ -1287,6 +1335,49 @@
               },
               "uniques": []
             },
+            "RateLimitHit": {
+              "columns": {
+                "createdAt": {
+                  "codecId": "pg/timestamp-string@1",
+                  "dataType": "pg/timestamp",
+                  "default": {
+                    "expression": "now()",
+                    "kind": "function"
+                  },
+                  "nullable": false,
+                  "typeParams": {
+                    "precision": 3
+                  }
+                },
+                "id": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": false
+                },
+                "key": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": false
+                }
+              },
+              "foreignKeys": [],
+              "indexes": [
+                {
+                  "columns": [
+                    "key",
+                    "createdAt"
+                  ],
+                  "name": "RateLimitHit_key_createdAt_idx",
+                  "unique": false
+                }
+              ],
+              "primaryKey": {
+                "columns": [
+                  "id"
+                ]
+              },
+              "uniques": []
+            },
             "ShoppingItem": {
               "columns": {
                 "categoryId": {
@@ -1579,10 +1670,10 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "2ac4d7dbd4ca438cfd0c26b4e047e5c6712b6bb3adda199cea689063cf8a8336"
+    "storageHash": "8444290e434e68bde4b5d9a490022aac06cb4481173dc26cc9cc9a6418961ed0"
   },
   "execution": {
-    "executionHash": "efde0bb4eb93c13bc1812425e84858fcba71c2eea6655b8d53d34b3953e90587",
+    "executionHash": "9bcbd46ab04c8c211094bb96c9b5a60ccc196c2856d0a00784e64435be080506",
     "mutations": {
       "defaults": [
         {
@@ -1702,6 +1793,31 @@
           },
           "ref": {
             "entry": "Notification",
+            "field": "id",
+            "namespace": "public"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "timestampStringNow",
+            "kind": "generator",
+            "params": {
+              "precision": 3
+            }
+          },
+          "ref": {
+            "entry": "RateLimitHit",
+            "field": "createdAt",
+            "namespace": "public"
+          }
+        },
+        {
+          "onCreate": {
+            "id": "cuid2",
+            "kind": "generator"
+          },
+          "ref": {
+            "entry": "RateLimitHit",
             "field": "id",
             "namespace": "public"
           }

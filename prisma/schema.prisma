@@ -113,3 +113,12 @@ model Notification {
   // Relations
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+// Compteur de limitation de débit (tentatives de connexion, d'inscription, de partage)
+model RateLimitHit {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+}

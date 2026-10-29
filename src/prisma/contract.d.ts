@@ -23,9 +23,9 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'2ac4d7dbd4ca438cfd0c26b4e047e5c6712b6bb3adda199cea689063cf8a8336'>;
+  StorageHashBase<'8444290e434e68bde4b5d9a490022aac06cb4481173dc26cc9cc9a6418961ed0'>;
 export type ExecutionHash =
-  ExecutionHashBase<'efde0bb4eb93c13bc1812425e84858fcba71c2eea6655b8d53d34b3953e90587'>;
+  ExecutionHashBase<'9bcbd46ab04c8c211094bb96c9b5a60ccc196c2856d0a00784e64435be080506'>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
 
@@ -350,6 +350,12 @@ export namespace Models {
     user: public_User;
     readonly [RelationKeys]?: 'user';
   };
+  export type public_RateLimitHit = {
+    createdAt: FieldOutputTypes['public']['RateLimitHit']['createdAt'];
+    id: FieldOutputTypes['public']['RateLimitHit']['id'];
+    key: FieldOutputTypes['public']['RateLimitHit']['key'];
+    readonly [RelationKeys]?: never;
+  };
   export type public_ShoppingItem = {
     categoryId: FieldOutputTypes['public']['ShoppingItem']['categoryId'];
     createdAt: FieldOutputTypes['public']['ShoppingItem']['createdAt'];
@@ -400,6 +406,7 @@ export declare const models: {
     Event: Models.public_Event;
     EventShare: Models.public_EventShare;
     Notification: Models.public_Notification;
+    RateLimitHit: Models.public_RateLimitHit;
     ShoppingItem: Models.public_ShoppingItem;
     ShoppingItemPhoto: Models.public_ShoppingItemPhoto;
     User: Models.public_User;
@@ -735,6 +742,40 @@ type ContractBase = Omit<
                 },
               ];
             };
+            readonly RateLimitHit: {
+              columns: {
+                readonly createdAt: {
+                  readonly dataType: 'pg/timestamp';
+                  readonly codecId: 'pg/timestamp-string@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                  readonly typeParams: { readonly precision: 3 };
+                  readonly many: false;
+                };
+                readonly id: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly key: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [];
+              indexes: readonly [
+                {
+                  readonly name: 'RateLimitHit_key_createdAt_idx';
+                  readonly columns: readonly ['key', 'createdAt'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [];
+            };
             readonly ShoppingItem: {
               columns: {
                 readonly categoryId: {
@@ -1010,6 +1051,10 @@ type ContractBase = Omit<
     readonly Notification: {
       readonly namespace: 'public' & NamespaceId;
       readonly model: 'Notification';
+    };
+    readonly RateLimitHit: {
+      readonly namespace: 'public' & NamespaceId;
+      readonly model: 'RateLimitHit';
     };
     readonly ShoppingItem: {
       readonly namespace: 'public' & NamespaceId;
@@ -1311,6 +1356,36 @@ type ContractBase = Omit<
                 readonly title: { readonly column: 'title' };
                 readonly type: { readonly column: 'type' };
                 readonly userId: { readonly column: 'userId' };
+              };
+            };
+          };
+          readonly RateLimitHit: {
+            readonly fields: {
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamp-string@1';
+                  readonly typeParams: { readonly precision: 3 };
+                };
+              };
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly key: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+            };
+            readonly relations: Record<string, never>;
+            readonly storage: {
+              readonly table: 'RateLimitHit';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly createdAt: { readonly column: 'createdAt' };
+                readonly id: { readonly column: 'id' };
+                readonly key: { readonly column: 'key' };
               };
             };
           };
@@ -1713,6 +1788,26 @@ type ContractBase = Omit<
           readonly onCreate: { readonly id: 'cuid2'; readonly kind: 'generator' };
           readonly ref: {
             readonly entry: 'Notification';
+            readonly field: 'id';
+            readonly namespace: 'public';
+          };
+        },
+        {
+          readonly onCreate: {
+            readonly id: 'timestampStringNow';
+            readonly kind: 'generator';
+            readonly params: { readonly precision: 3 };
+          };
+          readonly ref: {
+            readonly entry: 'RateLimitHit';
+            readonly field: 'createdAt';
+            readonly namespace: 'public';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'cuid2'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly entry: 'RateLimitHit';
             readonly field: 'id';
             readonly namespace: 'public';
           };

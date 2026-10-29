@@ -3,11 +3,10 @@
 import { and, or } from '@prisma/orm-postgres/orm-client';
 import { db } from './db';
 import { revalidatePath } from 'next/cache';
-import { headers } from 'next/headers';
 import bcrypt from 'bcryptjs';
 import { auth } from './auth/server';
 import { getSessionUser } from './session';
-import { isLimited, recordFailure, clearFailures } from './rateLimit';
+import { isLimited, recordHit, clearHits, rateKey, getClientIp } from './rateLimit';
 import { shouldAutoHide, reactivationDate } from './recurring';
 import { parseTimestamp, toDates } from './dates';
 import { validateEventInput, validateItemInput, validateCategoryInput } from './validation';
@@ -37,6 +36,7 @@ export interface UpdateItemStatusData {
 }
 
 const NO_AUTH = { success: false, error: 'Vous devez être connecté' } as const;
+const HOUR = 60 * 60 * 1000;
 const FORBIDDEN = { success: false, error: 'Accès refusé' } as const;
 
 // Droits de l'utilisateur sur un événement : null s'il n'y a aucun accès
@@ -63,6 +63,16 @@ export async function registerUser(username: string, password: string, email?: s
     if (password.length < 8) {
       return { success: false, error: 'Le mot de passe doit contenir au moins 8 caractères' };
     }
+
+    // Chaque tentative compte (anti-spam d'inscriptions)
+    const ip = await getClientIp();
+    const regKey = rateKey('register', username);
+    const regIpKey = ip && rateKey('register-ip', ip);
+    if ((await isLimited(regKey, 5, HOUR)) || (regIpKey && (await isLimited(regIpKey, 10, HOUR)))) {
+      return { success: false, error: 'Trop de tentatives, réessayez dans 1 heure' };
+    }
+    await recordHit(regKey);
+    if (regIpKey) await recordHit(regIpKey);
 
     // Vérifier si l'utilisateur existe déjà
     const existingUser = await db.orm.public.User
@@ -99,11 +109,11 @@ const LOGIN_ERROR = { success: false, error: 'Nom d\'utilisateur ou mot de passe
 
 export async function authenticateUser(username: string, password: string) {
   try {
-    const ip = (await headers()).get('x-forwarded-for')?.split(',')[0].trim() || 'inconnue';
-    const userKey = `u:${username.toLowerCase()}`;
-    const ipKey = `ip:${ip}`;
+    const ip = await getClientIp();
+    const userKey = rateKey('login', username);
+    const ipKey = ip && rateKey('login-ip', ip);
 
-    if (isLimited(userKey, 5) || isLimited(ipKey, 20)) {
+    if ((await isLimited(userKey, 5)) || (ipKey && (await isLimited(ipKey, 20)))) {
       return { success: false, error: 'Trop de tentatives, réessayez dans 15 minutes' };
     }
 
@@ -128,12 +138,12 @@ export async function authenticateUser(username: string, password: string) {
     }
 
     if (!user || !ok) {
-      recordFailure(userKey);
-      recordFailure(ipKey);
+      await recordHit(userKey);
+      if (ipKey) await recordHit(ipKey);
       return LOGIN_ERROR;
     }
 
-    clearFailures(userKey);
+    await clearHits(userKey);
     return {
       success: true,
       user: {
@@ -209,6 +219,10 @@ export async function shareEvent(eventId: string, targetUsername: string, canEdi
   try {
     const me = await getSessionUser();
     if (!me) return NO_AUTH;
+
+    const shareKey = rateKey('share', me.id);
+    if (await isLimited(shareKey, 30, HOUR)) return { success: false, error: 'Trop de tentatives, réessayez dans 1 heure' };
+    await recordHit(shareKey);
 
     // Seul le propriétaire peut partager
     const event = await db.orm.public.Event.where({ id: eventId, ownerId: me.id }).first();

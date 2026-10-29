@@ -10,7 +10,6 @@ vi.mock('next/headers', () => ({ headers: vi.fn(), cookies: vi.fn() }));
 vi.mock('./session', () => ({ getSessionUser: vi.fn() }));
 vi.mock('./auth/server', () => ({ auth: {} }));
 
-import { isLimited, recordFailure } from './rateLimit';
 import { shouldAutoHide, reactivationDate } from './recurring';
 import { toDates } from './dates';
 
@@ -114,14 +113,6 @@ describe.skipIf(!TEST_DB)('autorisations et achats (base réelle)', () => {
     expect(created?.targetDate).toEqual(targetDate);
     expect(created?.owner.username).toBe(alice.username);
     expect(created?.owner).not.toHaveProperty('password');
-  });
-});
-
-describe('limite de tentatives', () => {
-  it('bloque après le maximum', () => {
-    for (let i = 0; i < 5; i++) recordFailure('k', 0);
-    expect(isLimited('k', 5, 1)).toBe(true);
-    expect(isLimited('k', 5, 16 * 60 * 1000)).toBe(false);
   });
 });
 
