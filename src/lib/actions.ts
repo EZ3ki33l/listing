@@ -116,6 +116,7 @@ export async function authenticateUser(username: string, password: string) {
     if ((await isLimited(userKey, 5)) || (ipKey && (await isLimited(ipKey, 20)))) {
       return { success: false, error: 'Trop de tentatives, réessayez dans 15 minutes' };
     }
+    await recordHit(userKey); // compté avant le travail lent (sinon des requêtes parallèles passent toutes le contrôle) ; effacé en cas de succès
 
     const user = await db.orm.public.User.where({ username }).first();
     const email = user && authEmail(user.username, user.email);
@@ -138,7 +139,6 @@ export async function authenticateUser(username: string, password: string) {
     }
 
     if (!user || !ok) {
-      await recordHit(userKey);
       if (ipKey) await recordHit(ipKey);
       return LOGIN_ERROR;
     }

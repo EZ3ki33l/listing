@@ -7,7 +7,7 @@ if (TEST_DB) process.env.DATABASE_URL = TEST_DB;
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
 vi.mock('next/headers', () => ({ headers: vi.fn(), cookies: vi.fn() }));
 vi.mock('./session', () => ({ getSessionUser: vi.fn() }));
-vi.mock('./auth/server', () => ({ auth: {} }));
+vi.mock('./auth/server', () => ({ auth: { signIn: { email: vi.fn() } } }));
 
 import { rateKey } from './rateLimit';
 
@@ -24,6 +24,8 @@ describe.skipIf(!TEST_DB)('limitation de débit (base réelle)', () => {
   let actions: typeof import('./actions');
   let headers: ReturnType<typeof vi.fn>;
   let getSessionUser: ReturnType<typeof vi.fn>;
+  let signIn: ReturnType<typeof vi.fn>;
+  const userIds: string[] = [];
   const tag = Math.random().toString(36).slice(2, 8);
   const keys = new Set<string>();
   const key = (n: string) => { const k = rateKey('test', n, tag); keys.add(k); return k; };
@@ -34,6 +36,7 @@ describe.skipIf(!TEST_DB)('limitation de débit (base réelle)', () => {
     rl = await import('./rateLimit');
     actions = await import('./actions');
     headers = vi.mocked((await import('next/headers')).headers) as unknown as ReturnType<typeof vi.fn>;
+    signIn = vi.mocked((await import('./auth/server')).auth.signIn.email) as unknown as ReturnType<typeof vi.fn>;
     getSessionUser = vi.mocked((await import('./session')).getSessionUser) as unknown as ReturnType<typeof vi.fn>;
   });
 
@@ -44,6 +47,7 @@ describe.skipIf(!TEST_DB)('limitation de débit (base réelle)', () => {
 
   afterAll(async () => {
     for (const k of keys) await rl.clearHits(k);
+    for (const id of userIds) await db.orm.public.User.where({ id }).delete();
     await db.close();
   });
 
@@ -117,5 +121,54 @@ describe.skipIf(!TEST_DB)('limitation de débit (base réelle)', () => {
     keys.add(shareKey);
     for (let i = 0; i < 30; i++) await rl.recordHit(shareKey);
     expect(await actions.shareEvent('inconnu', 'quelquun')).toEqual({ success: false, error: 'Trop de tentatives, réessayez dans 1 heure' });
+  });
+
+  describe('connexion : la tentative est comptée avant le travail lent', () => {
+    const mkUser = async (name: string) => {
+      const username = `${name}${tag}`;
+      const u = await db.orm.public.User.create({ username, authId: `auth-${username}` });
+      userIds.push(u.id);
+      keys.add(rateKey('login', username));
+      return username;
+    };
+    const userCount = (username: string) => count(rateKey('login', username));
+
+    it('une tentative en vol est déjà comptée, et le succès efface la clé du pseudo', async () => {
+      delete process.env.CLIENT_IP_HEADER;
+      headers.mockResolvedValue(new Headers());
+      const username = await mkUser('inflight');
+      let release!: (v: unknown) => void;
+      let entered!: () => void;
+      const hasEntered = new Promise<void>((r) => (entered = r));
+      signIn.mockImplementationOnce(() => { entered(); return new Promise((r) => (release = r)); });
+      const pending = actions.authenticateUser(username, 'bon');
+      await hasEntered;
+      expect(await userCount(username)).toBe(1);
+      release({ data: { user: { id: 'x' } }, error: null });
+      expect(await pending).toMatchObject({ success: true });
+      expect(await userCount(username)).toBe(0);
+    });
+
+    it('un succès n\'efface pas la clé IP', async () => {
+      vi.stubEnv('CLIENT_IP_HEADER', 'x-real-ip');
+      const ip = `198.51.100.${tag}`;
+      const ipKey = rateKey('login-ip', ip);
+      keys.add(ipKey);
+      headers.mockResolvedValue(new Headers({ 'x-real-ip': ip }));
+      const username = await mkUser('ipkeep');
+      await rl.recordHit(ipKey);
+      signIn.mockResolvedValueOnce({ data: { user: { id: 'x' } }, error: null });
+      expect(await actions.authenticateUser(username, 'bon')).toMatchObject({ success: true });
+      expect(await count(ipKey)).toBe(1);
+    });
+
+    it('un échec compte exactement une fois pour le pseudo', async () => {
+      delete process.env.CLIENT_IP_HEADER;
+      headers.mockResolvedValue(new Headers());
+      const username = await mkUser('fail');
+      signIn.mockResolvedValueOnce({ data: null, error: { message: 'non' } });
+      expect(await actions.authenticateUser(username, 'mauvais')).toMatchObject({ success: false });
+      expect(await userCount(username)).toBe(1);
+    });
   });
 });
