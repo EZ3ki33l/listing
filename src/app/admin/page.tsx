@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { authenticateUser, getCurrentUser, logoutUser, createCategory, updateCategory, deleteCategory, getCategoriesWithItemCount } from '@/lib/actions';
 import DefaultCategoriesInitializer from '@/components/DefaultCategoriesInitializer';
+import { useFeedback } from '@/components/Feedback';
 
 interface Category {
   id: string;
@@ -19,11 +20,11 @@ interface AdminData {
 }
 
 export default function AdminPage() {
+  const { notify, confirm } = useFeedback();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
   const [adminData, setAdminData] = useState<AdminData | null>(null);
   
   // États pour les catégories
@@ -85,7 +86,8 @@ export default function AdminPage() {
         setError(result.error || 'Nom d\'utilisateur ou mot de passe incorrect');
       }
     } catch (error) {
-      setError(`Erreur lors de la connexion: ${error}`);
+      console.error('Erreur lors de la connexion:', error);
+      setError('Erreur lors de la connexion');
     } finally {
       setIsLoading(false);
     }
@@ -94,25 +96,25 @@ export default function AdminPage() {
   const handleCreateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newCategory.name.trim()) {
-      setMessage('❌ Veuillez remplir le nom de la catégorie');
+      notify('error', 'Champ requis', 'Veuillez remplir le nom de la catégorie');
       return;
     }
 
     setIsLoading(true);
-    setMessage('');
     
     try {
       const result = await createCategory(newCategory);
       if (result.success) {
-        setMessage('✅ Catégorie créée avec succès !');
+        notify('success', 'Catégorie créée', 'La catégorie a été créée avec succès.');
         setNewCategory({ name: '', color: '#3B82F6', icon: '' });
         setShowCategoryForm(false);
         await loadCategories();
       } else {
-        setMessage(`❌ Erreur: ${result.error}`);
+        notify('error', 'Erreur', result.error);
       }
-    } catch {
-      setMessage('❌ Erreur lors de la création de la catégorie');
+    } catch (error) {
+      console.error('Erreur lors de la création de la catégorie:', error);
+      notify('error', 'Erreur', 'Erreur lors de la création de la catégorie');
     } finally {
       setIsLoading(false);
     }
@@ -121,46 +123,52 @@ export default function AdminPage() {
   const handleUpdateCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingCategory || !editCategoryData.name.trim()) {
-      setMessage('❌ Veuillez remplir le nom de la catégorie');
+      notify('error', 'Champ requis', 'Veuillez remplir le nom de la catégorie');
       return;
     }
 
     setIsLoading(true);
-    setMessage('');
     
     try {
       const result = await updateCategory(editingCategory.id, editCategoryData);
       if (result.success) {
-        setMessage('✅ Catégorie mise à jour avec succès !');
+        notify('success', 'Catégorie mise à jour', 'La catégorie a été mise à jour avec succès.');
         setEditingCategory(null);
         setEditCategoryData({ name: '', color: '#3B82F6', icon: '' });
         await loadCategories();
       } else {
-        setMessage(`❌ Erreur: ${result.error}`);
+        notify('error', 'Erreur', result.error);
       }
     } catch (error) {
-      setMessage(`❌ Erreur lors de la mise à jour de la catégorie: ${error}`);
+      console.error('Erreur lors de la mise à jour de la catégorie:', error);
+      notify('error', 'Erreur', 'Erreur lors de la mise à jour de la catégorie');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleDeleteCategory = async (categoryId: string) => {
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cette catégorie ?')) return;
+    const ok = await confirm({
+      title: 'Supprimer la catégorie',
+      message: 'Êtes-vous sûr de vouloir supprimer cette catégorie ?',
+      confirmText: 'Supprimer',
+      type: 'danger'
+    });
+    if (!ok) return;
 
     setIsLoading(true);
-    setMessage('');
     
     try {
       const result = await deleteCategory(categoryId);
       if (result.success) {
-        setMessage('✅ Catégorie supprimée avec succès !');
+        notify('success', 'Catégorie supprimée', 'La catégorie a été supprimée avec succès.');
         await loadCategories();
       } else {
-        setMessage(`❌ Erreur: ${result.error}`);
+        notify('error', 'Erreur', result.error);
       }
     } catch (error) {
-      setMessage(`❌ Erreur lors de la suppression de la catégorie: ${error}`);
+      console.error('Erreur lors de la suppression de la catégorie:', error);
+      notify('error', 'Erreur', 'Erreur lors de la suppression de la catégorie');
     } finally {
       setIsLoading(false);
     }
@@ -314,16 +322,6 @@ export default function AdminPage() {
       </header>
 
       <main className="max-w-6xl mx-auto p-6">
-        {message && (
-          <div className={`px-4 py-3 rounded-xl text-center mb-6 ${
-            message.includes('✅') 
-              ? 'bg-green-100 border border-green-200 text-green-700' 
-              : 'bg-red-100 border border-red-200 text-red-700'
-          }`}>
-            {message}
-          </div>
-        )}
-
         {/* Gestion des catégories */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
           <div className="flex justify-between items-center mb-4">

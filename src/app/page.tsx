@@ -4,8 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import EventCountdown from '@/components/EventCountdown';
 import Link from 'next/link';
 import { getAllActiveEvents, getCurrentUser, leaveSharedEvent } from '@/lib/actions';
-import NotificationToast from '@/components/NotificationToast';
-import ConfirmModal from '@/components/ConfirmModal';
+import { useFeedback } from '@/components/Feedback';
 import UserMenu from '@/components/UserMenu';
 import UserAuth from '@/components/UserAuth';
 
@@ -24,16 +23,11 @@ interface Event {
 }
 
 export default function HomePage() {
+  const { notify, confirm } = useFeedback();
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitializing, setIsInitializing] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
-  const [notification, setNotification] = useState<{ type: 'success' | 'error' | 'info' | 'warning', title: string, message: string } | null>(null);
-  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean, eventId: string | null, eventName: string }>({
-    isOpen: false,
-    eventId: null,
-    eventName: ''
-  });
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
@@ -94,50 +88,28 @@ export default function HomePage() {
     }
   }, [userId, isInitializing, loadEvents]);
 
-  const handleLeaveEvent = (eventId: string, eventName: string) => {
-    setConfirmModal({
-      isOpen: true,
-      eventId,
-      eventName
+  const handleLeaveEvent = async (eventId: string, eventName: string) => {
+    const ok = await confirm({
+      title: "Se retirer de l'événement",
+      message: `Êtes-vous sûr de vouloir vous retirer de l'événement "${eventName}" ?\n\nVous ne pourrez plus accéder à cette liste d'achats partagée.`,
+      confirmText: 'Oui, me retirer',
+      type: 'warning'
     });
-  };
-
-  const confirmLeaveEvent = async () => {
-    if (!confirmModal.eventId) return;
+    if (!ok) return;
 
     try {
-      const result = await leaveSharedEvent(confirmModal.eventId);
-      
+      const result = await leaveSharedEvent(eventId);
+
       if (result.success) {
-        setNotification({
-          type: 'success',
-          title: 'Retrait réussi',
-          message: `${result.message}\n\nL'événement "${result.eventName}" de ${result.ownerUsername} a été retiré de vos événements partagés.`
-        });
-        // Recharger les événements
+        notify('success', 'Retrait réussi', `${result.message}\n\nL'événement "${result.eventName}" de ${result.ownerUsername} a été retiré de vos événements partagés.`);
         await loadEvents();
       } else {
-        setNotification({
-          type: 'error',
-          title: 'Erreur',
-          message: `Erreur: ${result.error}`
-        });
+        notify('error', 'Erreur', result.error || "Erreur lors du retrait de l'événement");
       }
     } catch (error) {
       console.error('Erreur lors du retrait de l\'événement:', error);
-      setNotification({
-        type: 'error',
-        title: 'Erreur',
-        message: 'Erreur lors du retrait de l\'événement'
-      });
+      notify('error', 'Erreur', "Erreur lors du retrait de l'événement");
     }
-
-    // Fermer la modal
-    setConfirmModal({ isOpen: false, eventId: null, eventName: '' });
-  };
-
-  const cancelLeaveEvent = () => {
-    setConfirmModal({ isOpen: false, eventId: null, eventName: '' });
   };
 
   const handleLogin = (userData: { id: string; username: string; email?: string; isAdmin: boolean }) => {
@@ -281,28 +253,6 @@ export default function HomePage() {
       )}
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Affichage des notifications personnalisées */}
-        {notification && (
-          <NotificationToast
-            type={notification.type}
-            title={notification.title}
-            message={notification.message}
-            onClose={() => setNotification(null)}
-          />
-        )}
-
-        {/* Modal de confirmation pour se retirer d'un événement */}
-        <ConfirmModal
-          isOpen={confirmModal.isOpen}
-          title="Se retirer de l'événement"
-          message={`Êtes-vous sûr de vouloir vous retirer de l'événement "${confirmModal.eventName}" ?\n\nVous ne pourrez plus accéder à cette liste d'achats partagée.`}
-          confirmText="Oui, me retirer"
-          cancelText="Annuler"
-          type="warning"
-          onConfirm={confirmLeaveEvent}
-          onCancel={cancelLeaveEvent}
-        />
-
         <h1 className="text-5xl font-bold text-center text-gray-800 mb-4">
           🎉 Gestionnaire de Listes d&apos;Achats Familial
         </h1>

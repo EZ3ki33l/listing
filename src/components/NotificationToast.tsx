@@ -1,12 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CheckCircle, XCircle, X } from 'lucide-react';
+import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 
 interface NotificationToastProps {
   type: 'success' | 'error' | 'info' | 'warning';
   title: string;
-  message: string;
+  message?: string;
   duration?: number;
   onClose: () => void;
 }
@@ -44,9 +44,9 @@ export default function NotificationToast({
       case 'error':
         return <XCircle className="w-6 h-6 text-red-500" />;
       case 'warning':
-        return <XCircle className="w-6 h-6 text-yellow-500" />;
+        return <AlertTriangle className="w-6 h-6 text-yellow-500" />;
       case 'info':
-        return <CheckCircle className="w-6 h-6 text-blue-500" />;
+        return <Info className="w-6 h-6 text-blue-500" />;
       default:
         return <CheckCircle className="w-6 h-6 text-gray-500" />;
     }
@@ -84,7 +84,8 @@ export default function NotificationToast({
 
   return (
     <div
-      className={`fixed top-4 right-4 z-30 w-96 transform transition-all duration-300 ease-in-out ${
+      role={type === 'error' ? 'alert' : 'status'}
+      className={`fixed top-4 right-4 z-[60] w-96 transform transition-all duration-300 ease-in-out ${
         isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
       }`}
     >
@@ -108,12 +109,15 @@ export default function NotificationToast({
               <h4 className="text-sm font-semibold mb-1">
                 {title}
               </h4>
-              <p className="text-sm whitespace-pre-line">
-                {message}
-              </p>
+              {message && (
+                <p className="text-sm whitespace-pre-line">
+                  {message}
+                </p>
+              )}
             </div>
 
             <button
+              aria-label="Fermer"
               onClick={() => {
                 setIsVisible(false);
                 setTimeout(onClose, 300);

@@ -8,6 +8,7 @@ import CategoryFilter from '@/components/CategoryFilter';
 import SearchBar from '@/components/SearchBar';
 import ImageCarousel from '@/components/ImageCarousel';
 import ThankYouModal from '@/components/ThankYouModal';
+import { useFeedback } from '@/components/Feedback';
 
 interface Event {
   id: string;
@@ -59,11 +60,11 @@ interface Category {
 function ListePageContent() {
   const searchParams = useSearchParams();
   const eventId = searchParams.get('event');
+  const { notify, confirm } = useFeedback();
   
   const [event, setEvent] = useState<Event | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [message, setMessage] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string } | null>(null);
   const [showThankYouModal, setShowThankYouModal] = useState(false);
@@ -93,7 +94,7 @@ function ListePageContent() {
       if (eventResult.success && eventResult.event) {
         setEvent(eventResult.event);
       } else {
-        setMessage(`❌ ${eventResult.error || 'Erreur lors du chargement de l\'événement'}`);
+        notify('error', 'Erreur', eventResult.error || "Erreur lors du chargement de l'événement");
       }
 
       if (categoriesResult.success && categoriesResult.categories) {
@@ -101,11 +102,11 @@ function ListePageContent() {
       }
     } catch (error) {
       console.error('Erreur lors du chargement des données:', error);
-      setMessage('❌ Erreur lors du chargement de l\'événement');
+      notify('error', 'Erreur', "Erreur lors du chargement de l'événement");
     } finally {
       setIsLoading(false);
     }
-  }, [eventId, currentUser]);
+  }, [eventId, currentUser, notify]);
 
   useEffect(() => {
     // Vérifier si l'utilisateur est connecté
@@ -147,17 +148,16 @@ function ListePageContent() {
     
     // Vérifier les permissions
     if (!canAddItems()) {
-      setMessage('❌ Vous n\'avez pas la permission d\'ajouter des articles à cette liste');
+      notify('error', 'Permission refusée', "Vous n'avez pas la permission d'ajouter des articles à cette liste");
       return;
     }
     
     if (!eventId || !newItem.name.trim()) {
-      setMessage('❌ Veuillez remplir le nom de l\'article');
+      notify('error', 'Champ requis', "Veuillez remplir le nom de l'article");
       return;
     }
 
     setIsLoading(true);
-    setMessage('');
     
     try {
       const result = await createShoppingItem({
@@ -171,15 +171,16 @@ function ListePageContent() {
       });
 
       if (result.success) {
-        setMessage('✅ Article ajouté avec succès !');
+        notify('success', 'Article ajouté', 'L\'article a été ajouté avec succès.');
         setNewItem({ name: '', description: '', price: '', purchaseUrl: '', categoryId: '', photos: [{ imageUrl: '', altText: '' }] });
         setShowAddForm(false);
         await loadEventData();
       } else {
-        setMessage(`❌ Erreur: ${result.error}`);
+        notify('error', 'Erreur', result.error);
       }
     } catch (error) {
-      setMessage(`❌ Erreur lors de l'ajout de l'article: ${error}`);
+      console.error("Erreur lors de l'ajout de l'article:", error);
+      notify('error', 'Erreur', "Erreur lors de l'ajout de l'article");
     } finally {
       setIsLoading(false);
     }
@@ -192,7 +193,7 @@ function ListePageContent() {
         isPurchased
       });
 
-      if (!result.success) setMessage(`❌ ${result.error}`);
+      if (!result.success) notify('error', 'Erreur', result.error);
       await loadEventData();
       // Afficher la modal de remerciement seulement pour les événements d'anniversaire
       if (result.success && isPurchased && event?.eventType === 'anniversaire') {
@@ -200,25 +201,35 @@ function ListePageContent() {
       }
     } catch (error) {
       console.error('Erreur lors de la mise à jour du statut:', error);
+      notify('error', 'Erreur', 'Impossible de mettre à jour le statut de l\'article');
     }
   };
 
   const handleDeleteItem = async (itemId: string) => {
     // Vérifier les permissions
     if (!canDeleteItems()) {
-      setMessage('❌ Vous n\'avez pas la permission de supprimer des articles de cette liste');
+      notify('error', 'Permission refusée', "Vous n'avez pas la permission de supprimer des articles de cette liste");
       return;
     }
     
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cet article ?')) return;
+    const ok = await confirm({
+      title: "Supprimer l'article",
+      message: 'Êtes-vous sûr de vouloir supprimer cet article ?',
+      confirmText: 'Supprimer',
+      type: 'danger'
+    });
+    if (!ok) return;
 
     try {
       const result = await deleteShoppingItem(itemId);
       if (result.success) {
         await loadEventData();
+      } else {
+        notify('error', 'Erreur', result.error);
       }
     } catch (error) {
       console.error('Erreur lors de la suppression:', error);
+      notify('error', 'Erreur', "Erreur lors de la suppression de l'article");
     }
   };
 
@@ -381,16 +392,6 @@ function ListePageContent() {
       </header>
 
       <main className="max-w-6xl mx-auto p-6">
-        {message && (
-          <div className={`px-4 py-3 rounded-xl text-center mb-6 ${
-            message.includes('✅') 
-              ? 'bg-green-100 border border-green-200 text-green-700' 
-              : 'bg-red-100 border border-red-200 text-red-700'
-          }`}>
-            {message}
-          </div>
-        )}
-
         {/* Filtres et recherche */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
           <div className="space-y-6">

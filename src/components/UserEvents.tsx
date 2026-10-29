@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getUserEvents, shareEvent, createEvent, updateEvent, hideEvent, reactivateEvent } from '@/lib/actions';
 import Link from 'next/link';
+import Modal from './Modal';
+import { useFeedback } from './Feedback';
 
 
 
@@ -48,10 +50,10 @@ interface Event {
 }
 
 export default function UserEvents({ userId }: UserEventsProps) {
+  const { notify } = useFeedback();
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isInitializing, setIsInitializing] = useState(true);
-  const [message, setMessage] = useState('');
   const [showShareForm, setShowShareForm] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -105,30 +107,30 @@ export default function UserEvents({ userId }: UserEventsProps) {
   const handleShare = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEvent || !shareData.targetUsername.trim()) {
-      setMessage('❌ Veuillez entrer un nom d\'utilisateur');
+      notify('error', 'Champ requis', "Veuillez entrer un nom d'utilisateur");
       return;
     }
 
     try {
       const result = await shareEvent(selectedEvent.id, shareData.targetUsername, shareData.canEdit);
       if (result.success) {
-        setMessage(`✅ ${result.message}`);
+        notify('success', 'Événement partagé', result.message);
         setShowShareForm(false);
         setSelectedEvent(null);
         setShareData({ targetUsername: '', canEdit: false });
-        setTimeout(() => setMessage(''), 3000);
       } else {
-        setMessage(`❌ ${result.error}`);
+        notify('error', 'Erreur', result.error);
       }
     } catch (error) {
-      setMessage(`❌ Erreur lors du partage: ${error}`);
+      console.error("Erreur lors du partage:", error);
+      notify('error', 'Erreur', "Erreur lors du partage");
     }
   };
 
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!createEventData.name.trim()) {
-      setMessage('❌ Veuillez entrer un nom pour l\'événement');
+      notify('error', 'Champ requis', "Veuillez entrer un nom pour l'événement");
       return;
     }
 
@@ -143,7 +145,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
 
       const result = await createEvent(eventData);
       if (result.success) {
-        setMessage('✅ Événement créé avec succès !');
+        notify('success', 'Événement créé', "L'événement a été créé avec succès.");
         setShowCreateForm(false);
         setCreateEventData({
           name: '',
@@ -154,12 +156,12 @@ export default function UserEvents({ userId }: UserEventsProps) {
         });
         // Recharger les événements
         await loadEvents();
-        setTimeout(() => setMessage(''), 3000);
       } else {
-        setMessage(`❌ ${result.error}`);
+        notify('error', 'Erreur', result.error);
       }
     } catch (error) {
-      setMessage(`❌ Erreur lors de la création de l'événement: ${error}`);
+      console.error("Erreur lors de la création de l'événement:", error);
+      notify('error', 'Erreur', "Erreur lors de la création de l'événement");
     }
   };
 
@@ -178,7 +180,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
   const handleUpdateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingEvent || !editEventData.name.trim()) {
-      setMessage('❌ Veuillez entrer un nom d\'événement');
+      notify('error', 'Champ requis', "Veuillez entrer un nom d'événement");
       return;
     }
 
@@ -192,15 +194,16 @@ export default function UserEvents({ userId }: UserEventsProps) {
       });
 
       if (result.success) {
-        setMessage('✅ Événement modifié avec succès !');
+        notify('success', 'Événement modifié', "L'événement a été modifié avec succès.");
         setShowEditForm(false);
         setEditingEvent(null);
         await loadEvents();
       } else {
-        setMessage(`❌ Erreur: ${result.error}`);
+        notify('error', 'Erreur', result.error);
       }
     } catch (error) {
-      setMessage(`❌ Erreur lors de la modification de l'événement: ${error}`);
+      console.error("Erreur lors de la modification de l'événement:", error);
+      notify('error', 'Erreur', "Erreur lors de la modification de l'événement");
     }
   };
 
@@ -220,14 +223,14 @@ export default function UserEvents({ userId }: UserEventsProps) {
     try {
       const result = await hideEvent(eventId);
       if (result.success) {
-        setMessage('✅ Événement masqué avec succès !');
+        notify('success', 'Événement masqué', "L'événement a été masqué avec succès.");
         await loadEvents();
-        setTimeout(() => setMessage(''), 3000);
       } else {
-        setMessage(`❌ ${result.error}`);
+        notify('error', 'Erreur', result.error);
       }
     } catch (error) {
-      setMessage(`❌ Erreur lors du masquage de l'événement: ${error}`);
+      console.error("Erreur lors du masquage de l'événement:", error);
+      notify('error', 'Erreur', "Erreur lors du masquage de l'événement");
     }
   };
 
@@ -235,14 +238,14 @@ export default function UserEvents({ userId }: UserEventsProps) {
     try {
       const result = await reactivateEvent(eventId);
       if (result.success) {
-        setMessage('✅ Événement réactivé avec succès !');
+        notify('success', 'Événement réactivé', "L'événement a été réactivé avec succès.");
         await loadEvents();
-        setTimeout(() => setMessage(''), 3000);
       } else {
-        setMessage(`❌ ${result.error}`);
+        notify('error', 'Erreur', result.error);
       }
     } catch (error) {
-      setMessage(`❌ Erreur lors de la réactivation de l'événement: ${error}`);
+      console.error("Erreur lors de la réactivation de l'événement:", error);
+      notify('error', 'Erreur', "Erreur lors de la réactivation de l'événement");
     }
   };
 
@@ -274,16 +277,6 @@ export default function UserEvents({ userId }: UserEventsProps) {
 
   return (
     <div className="space-y-8">
-      {message && (
-        <div className={`px-4 py-3 rounded-xl text-center ${
-          message.includes('✅') 
-            ? 'bg-green-100 border border-green-200 text-green-700' 
-            : 'bg-red-100 border border-red-200 text-red-700'
-        }`}>
-          {message}
-        </div>
-      )}
-
       {/* Événements personnels */}
       <div>
         <div className="flex justify-between items-center mb-6">
@@ -470,10 +463,10 @@ export default function UserEvents({ userId }: UserEventsProps) {
 
       {/* Modal de partage */}
       {showShareForm && selectedEvent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <Modal open onClose={() => { setShowShareForm(false); setSelectedEvent(null); }} labelledBy="share-title">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4">
             <div className="p-6">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">
+              <h3 id="share-title" className="text-xl font-bold text-gray-800 mb-4">
                 📤 Partager &quot;{selectedEvent.name}&quot;
               </h3>
               
@@ -529,15 +522,15 @@ export default function UserEvents({ userId }: UserEventsProps) {
               </form>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Modal de création d'événement */}
       {showCreateForm && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <Modal open onClose={() => setShowCreateForm(false)} labelledBy="create-title">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4">
             <div className="p-6">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">
+              <h3 id="create-title" className="text-xl font-bold text-gray-800 mb-4">
                 ➕ Créer un nouvel événement
               </h3>
               
@@ -644,15 +637,15 @@ export default function UserEvents({ userId }: UserEventsProps) {
               </form>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
       {/* Formulaire d'édition d'événement */}
       {showEditForm && editingEvent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <Modal open onClose={cancelEdit} labelledBy="edit-title">
           <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h3 className="text-xl font-semibold text-gray-800 mb-4">✏️ Modifier l&apos;événement</h3>
+              <h3 id="edit-title" className="text-xl font-semibold text-gray-800 mb-4">✏️ Modifier l&apos;événement</h3>
               
               <form onSubmit={handleUpdateEvent} className="space-y-4">
                 <div>
@@ -748,7 +741,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
               </form>
             </div>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );

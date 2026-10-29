@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { registerUser, authenticateUser } from '@/lib/actions';
+import Modal from './Modal';
+import { useFeedback } from './Feedback';
 
 interface UserAuthProps {
   onLogin: (user: { id: string; username: string; email?: string; isAdmin: boolean }) => void;
@@ -9,6 +11,7 @@ interface UserAuthProps {
 }
 
 export default function UserAuth({ onLogin, onClose }: UserAuthProps) {
+  const { notify } = useFeedback();
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -43,27 +46,29 @@ export default function UserAuth({ onLogin, onClose }: UserAuthProps) {
           // Après inscription, passer en mode connexion
           setIsLogin(true);
           setFormData({ username: formData.username, password: '', email: '' });
-          setError('✅ Inscription réussie ! Connectez-vous maintenant.');
+          notify('success', 'Inscription réussie', 'Connectez-vous maintenant.');
         }
       } else {
         setError(result.error || 'Une erreur est survenue');
       }
     } catch (error) {
-      setError(`Une erreur est survenue: ${error}`);
+      console.error('Erreur d\'authentification:', error);
+      setError('Une erreur est survenue. Veuillez réessayer.');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <Modal open onClose={onClose} labelledBy="auth-title">
       <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">
+            <h2 id="auth-title" className="text-2xl font-bold text-gray-800">
               {isLogin ? '🔐 Connexion' : '✨ Inscription'}
             </h2>
             <button
+              aria-label="Fermer"
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition-colors"
             >
@@ -119,11 +124,7 @@ export default function UserAuth({ onLogin, onClose }: UserAuthProps) {
             </div>
 
             {error && (
-              <div className={`px-4 py-3 rounded-xl text-sm text-center ${
-                error.includes('✅') 
-                  ? 'bg-green-100 border border-green-200 text-green-700' 
-                  : 'bg-red-100 border border-red-200 text-red-700'
-              }`}>
+              <div role="alert" className="px-4 py-3 rounded-xl text-sm text-center bg-red-100 border border-red-200 text-red-700">
                 {error}
               </div>
             )}
@@ -155,6 +156,6 @@ export default function UserAuth({ onLogin, onClose }: UserAuthProps) {
           </div>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
