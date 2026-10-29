@@ -159,6 +159,30 @@ describe.skipIf(!TEST_DB)('autorisations et achats (base réelle)', () => {
     expect((await actions.updateItemStatus({ itemId: free.id, isPurchased: true })).success).toBe(true);
   });
 
+  it('l\'ordre des articles ne trahit pas les achats (propriétaire et lecteur)', async () => {
+    const evId = (await db.orm.public.Event.create({ name: `Ordre-${tag}`, eventType: 'autre', ownerId: alice.id })).id;
+    await db.orm.public.EventShare.create({ eventId: evId, userId: bob.id, canEdit: false });
+    const ids: string[] = [];
+    for (const n of ['a', 'b', 'c', 'd', 'e']) ids.push((await db.orm.public.ShoppingItem.create({ name: n, eventId: evId })).id);
+    type Ev = { id: string; items: { id: string }[] };
+    const orders = async (u: Row) => {
+      loginAs(u);
+      const one = ((await actions.getEvent(evId)) as unknown as { event: Ev }).event;
+      const mine = ((await actions.getUserEvents()) as unknown as { events: Ev[] }).events.find((e) => e.id === evId)!;
+      const all = ((await actions.getAllActiveEvents()) as unknown as { events: Ev[] }).events.find((e) => e.id === evId)!;
+      return [one, mine, all].map((e) => e.items.map((i) => i.id));
+    };
+    const check = async () => {
+      for (const u of [alice, bob]) for (const order of await orders(u)) expect(order).toEqual(ids);
+    };
+    await check();
+    for (const i of [0, 2]) { // d'abord le premier article, puis un du milieu
+      loginAs(bob);
+      expect((await actions.updateItemStatus({ itemId: ids[i], isPurchased: true })).success).toBe(true);
+      await check();
+    }
+  });
+
   it('createEvent : masquage actif par défaut, désactivable', async () => {
     loginAs(alice);
     await actions.createEvent({ name: `Def-${tag}`, eventType: 'autre' });

@@ -41,6 +41,8 @@ const NO_AUTH = { success: false, error: 'Vous devez être connecté' } as const
 const HOUR = 60 * 60 * 1000;
 const FORBIDDEN = { success: false, error: 'Accès refusé' } as const;
 
+// Les articles sont lus avec orderBy([createdAt, id]) : un achat réécrit la ligne, l'ordre physique trahirait les achats au propriétaire
+
 // Droits de l'utilisateur sur un événement : null s'il n'y a aucun accès
 async function eventAccess(eventId: string, userId: string) {
   const event = await db.orm.public.Event.where({ id: eventId }).select('ownerId', 'hidePurchasesFromOwner').first();
@@ -181,7 +183,7 @@ export async function getUserEvents() {
 
     const owned = await db.orm.public.Event
       .where({ ownerId: me.id })
-      .include('items', (items) => items.include('category').include('photos'))
+      .include('items', (items) => items.orderBy([(i) => i.createdAt.asc(), (i) => i.id.asc()]).include('category').include('photos'))
       .all();
 
     const shares = await db.orm.public.EventShare
@@ -189,7 +191,7 @@ export async function getUserEvents() {
       .include('event', (event) =>
         event
           .include('owner', (owner) => owner.select('id', 'username'))
-          .include('items', (items) => items.include('category').include('photos'))
+          .include('items', (items) => items.orderBy([(i) => i.createdAt.asc(), (i) => i.id.asc()]).include('category').include('photos'))
       )
       .all();
 
@@ -425,7 +427,7 @@ export async function getEvent(eventId: string) {
       .include('owner', (owner) => owner.select('id', 'username'))
       .include('shares', (shares) => shares.where({ userId }))
       .include('items', (items) =>
-        items.include('photos', (photos) => photos.orderBy((p) => p.order.asc())).include('category')
+        items.orderBy([(i) => i.createdAt.asc(), (i) => i.id.asc()]).include('photos', (photos) => photos.orderBy((p) => p.order.asc())).include('category')
       )
       .first();
 
@@ -673,7 +675,7 @@ export async function getAllActiveEvents() {
       .orderBy((e) => e.targetDate.asc())
       .include('owner', (owner) => owner.select('id', 'username'))
       .include('items', (items) =>
-        items.include('photos', (photos) => photos.orderBy((p) => p.order.asc())).include('category')
+        items.orderBy([(i) => i.createdAt.asc(), (i) => i.id.asc()]).include('photos', (photos) => photos.orderBy((p) => p.order.asc())).include('category')
       )
       .all();
 
