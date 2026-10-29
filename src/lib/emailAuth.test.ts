@@ -190,6 +190,7 @@ describe.skipIf(!TEST_DB)('email et mot de passe oublié (base réelle, Neon Aut
       expect(log).toEqual([
         `signIn ${old}`,
         `signUp ${email}`,
+        `signIn ${email}`, // preuve que le nouveau compte accepte la connexion, avant toute modification
         `changePassword neon-old-${username} revoke=true`,
         `signIn ${email}`,
       ]);
@@ -268,6 +269,63 @@ describe.skipIf(!TEST_DB)('email et mot de passe oublié (base réelle, Neon Aut
       expect(await row(u.id)).toMatchObject({ authId: `neon-${email}`, authEmail: email });
     });
 
+    it('si le nouveau compte refuse la connexion (email à vérifier…) : rien ne change, ancien compte intact', async () => {
+      const { u, old } = await setup('AttachProof');
+      const email = `proof${tag}@exemple.fr`;
+      const signIn = fn(auth.signIn.email).getMockImplementation()!;
+      fn(auth.signIn.email).mockImplementation(async (a) => {
+        const e = (a as { email: string }).email;
+        if (e === email) { log.push(`signIn ${e}`); return ko('EMAIL_NOT_VERIFIED'); }
+        return signIn(a);
+      });
+      const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        expect(await actions.attachEmail(email, email, 'pw-actuel1')).toMatchObject({ success: false, error: 'Erreur lors de l\'ajout de l\'email' });
+        expect(err).toHaveBeenCalledWith(expect.stringContaining('connexion au nouveau compte'), 'EMAIL_NOT_VERIFIED');
+        expect(JSON.stringify(err.mock.calls)).not.toContain('pw-actuel1');
+      } finally {
+        err.mockRestore();
+      }
+      expect(log.some((l) => l.startsWith('changePassword'))).toBe(false);
+      expect(neon.get(old)!.password).toBe('pw-actuel1');
+      expect(cookie).toBe(`neon-old-${u.username}`);
+      expect(await row(u.id)).toMatchObject({ authId: `neon-old-${u.username}`, authEmail: null, email: null });
+    });
+
+    it('si changePassword lève une exception : succès quand même (compte déjà migré), journalisé', async () => {
+      const { u } = await setup('AttachThrow');
+      const email = `throw${tag}@exemple.fr`;
+      const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+      fn(auth.changePassword).mockImplementationOnce(async () => { throw new Error('fetch inattendu'); });
+      try {
+        expect(await actions.attachEmail(email, email, 'pw-actuel1')).toEqual({ success: true, email });
+        expect(err).toHaveBeenCalledWith(expect.stringContaining('non neutralisé'), 'fetch inattendu');
+      } finally {
+        err.mockRestore();
+      }
+      expect(cookie).toBe(`neon-${email}`);
+      expect(await row(u.id)).toMatchObject({ authId: `neon-${email}`, authEmail: email });
+    });
+
+    it('si la reconnexion finale échoue après la migration : message clair « reconnectez-vous », compte migré', async () => {
+      const { u } = await setup('AttachFinal');
+      const email = `final${tag}@exemple.fr`;
+      const signIn = fn(auth.signIn.email).getMockImplementation()!;
+      let n = 0;
+      fn(auth.signIn.email).mockImplementation(async (a) => {
+        const e = (a as { email: string }).email;
+        if (e === email && ++n === 2) { log.push(`signIn ${e}`); return ko('NETWORK'); } // la 2ᵉ, la dernière
+        return signIn(a);
+      });
+      const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+      try {
+        expect(await actions.attachEmail(email, email, 'pw-actuel1')).toEqual({ success: false, error: expect.stringContaining('reconnectez-vous') });
+      } finally {
+        err.mockRestore();
+      }
+      expect(await row(u.id)).toMatchObject({ authId: `neon-${email}`, authEmail: email, email });
+    });
+
     it('mauvais mot de passe actuel : rien n\'est créé', async () => {
       await setup('AttachPw');
       const email = `pw${tag}@exemple.fr`;
@@ -331,6 +389,47 @@ describe.skipIf(!TEST_DB)('email et mot de passe oublié (base réelle, Neon Aut
       expect(await byName(`RegKo${tag}`)).toBeNull();
       expect(log).not.toContain('deleteUser');
       err.mockRestore();
+    });
+  });
+
+  describe('adresses enregistrées avant cette tâche, avec majuscules', () => {
+    // Avant cette tâche, User.email était stocké tel que saisi (ex. « Jean@X.fr ») et n'était jamais en minuscules forcées
+    const mixed = () => `Jean-${tag}@X.fr`;
+    const lower = () => `jean-${tag}@x.fr`;
+    let legacyId: string;
+
+    beforeAll(async () => {
+      legacyId = (await mkUser({ username: `JeanMixed${tag}`, email: mixed(), password: bcrypt.hashSync('motdepasse1', 4) })).id;
+      keys.add(rateKey('reset', lower()));
+    });
+
+    it('mot de passe oublié : la ligne est trouvée sans tenir compte de la casse (réponse neutre)', async () => {
+      expect(await actions.requestPasswordReset(lower())).toEqual({ success: true, message: 'Si un compte existe, un email vient d\'être envoyé' });
+      expect(log).toEqual([`requestPasswordReset ${JSON.stringify({ email: lower(), redirectTo: 'http://localhost:3000/reset-password' })}`]);
+    });
+
+    it('inscription et ajout d\'email avec la même adresse en minuscules : message générique, rien de créé', async () => {
+      keys.add(rateKey('register', `JeanCopy${tag}`));
+      expect(await actions.registerUser(`JeanCopy${tag}`, 'motdepasse1', lower(), lower())).toEqual({ success: false, error: 'Nom d\'utilisateur ou email déjà utilisé' });
+      expect(await byName(`JeanCopy${tag}`)).toBeNull();
+
+      const me = await mkUser({ username: `JeanThief${tag}`, authId: `neon-thief-${tag}` });
+      keys.add(rateKey('attach', me.id));
+      getSessionUser.mockResolvedValue({ id: me.id, username: me.username, email: null, authEmail: null, authId: me.authId, isAdmin: false });
+      expect(await actions.attachEmail(lower(), lower(), 'motdepasse1')).toEqual({ success: false, error: 'Adresse email déjà utilisée' });
+      expect(log).toEqual([]); // aucun appel à Neon, donc aucun signUp
+    });
+
+    it('« _ » et « % » ne sont pas des jokers : une adresse voisine reste libre', async () => {
+      await mkUser({ username: `Under${tag}`, email: `a_b${tag}@x.fr`, authEmail: `a_b${tag}@x.fr` });
+      keys.add(rateKey('register', `UnderCopy${tag}`));
+      const email = `axb${tag}@x.fr`;
+      expect(await actions.registerUser(`UnderCopy${tag}`, 'motdepasse1', email, email)).toMatchObject({ success: true });
+    });
+
+    it('migration paresseuse : l\'adresse envoyée à Neon reste celle stockée, inchangée', async () => {
+      expect(await actions.authenticateUser(`JeanMixed${tag}`, 'motdepasse1')).toMatchObject({ success: true, user: { id: legacyId } });
+      expect(log).toEqual([`signUp ${mixed()}`]);
     });
   });
 

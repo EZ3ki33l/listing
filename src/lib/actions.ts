@@ -56,6 +56,10 @@ async function eventAccess(eventId: string, userId: string) {
 }
 
 const TAKEN = { success: false, error: 'Nom d\'utilisateur ou email déjà utilisé' } as const;
+
+// Égalité d'adresse sans tenir compte de la casse : les lignes d'avant l'email obligatoire gardent la casse saisie
+// (« Jean@X.fr »). ILIKE avec \ % _ échappés = égalité exacte ; la valeur reste un paramètre lié, jamais concaténée au SQL.
+const exactly = (email: string) => email.replace(/[\\%_]/g, '\\$&');
 const EMAIL_MISMATCH = 'Les deux adresses email ne correspondent pas';
 
 // Neon ne supprime pas les comptes (/delete-user en 404) : une adresse laissée par un essai interrompu se reprend avec le même mot de passe
@@ -90,7 +94,7 @@ export async function registerUser(username: string, password: string, email: st
     if (regIpKey) await recordHit(regIpKey);
 
     const existingUser = await db.orm.public.User
-      .where((u) => or(u.username.eq(username), u.email.eq(email), u.authEmail.eq(email)))
+      .where((u) => or(u.username.eq(username), u.email.ilike(exactly(email)), u.authEmail.ilike(exactly(email))))
       .first();
     if (existingUser) return TAKEN;
 
@@ -208,7 +212,7 @@ export async function attachEmail(email: string, emailConfirm: string, currentPa
     email = normEmail(email);
 
     if (await hitLimit('attach', me.id, 5)) return TOO_MANY;
-    const taken = await db.orm.public.User.where((u) => or(u.email.eq(email), u.authEmail.eq(email))).first();
+    const taken = await db.orm.public.User.where((u) => or(u.email.ilike(exactly(email)), u.authEmail.ilike(exactly(email)))).first();
     if (taken) return EMAIL_TAKEN;
 
     const oldEmail = signInEmail(me);
@@ -217,6 +221,15 @@ export async function attachEmail(email: string, emailConfirm: string, currentPa
 
     const newId = await neonSignUp(email, me.username, currentPassword);
     if (!newId || newId === me.authId) return EMAIL_TAKEN;
+
+    // Preuve que le nouveau compte accepte la connexion (l'inscription peut réussir sans session, ex. email à vérifier)
+    // avant de toucher à quoi que ce soit : sinon l'utilisateur serait relié à un compte inutilisable
+    const { data: proof, error: proofError } = await auth.signIn.email({ email, password: currentPassword });
+    if (!proof || proof.user.id !== newId) {
+      console.error(`Ajout d'email : connexion au nouveau compte ${newId} refusée, ancien compte ${me.authId} intact:`, proofError?.code ?? proofError?.message);
+      await auth.signIn.email({ email: oldEmail, password: currentPassword }); // remet la session de l'ancien compte
+      return { success: false, error: 'Erreur lors de l\'ajout de l\'email' };
+    }
 
     try {
       await db.orm.public.User.where({ id: me.id }).update({ authId: newId, authEmail: email, email });
@@ -227,16 +240,25 @@ export async function attachEmail(email: string, emailConfirm: string, currentPa
     }
 
     // Les appels du SDK partent avec le cookie reçu (session de l'ancien compte) : changePassword vise donc l'ancien compte
-    const { error: neutralizeError } = await auth.changePassword({
-      currentPassword, newPassword: randomBytes(32).toString('base64url'), revokeOtherSessions: true,
-    });
+    // Le compte est migré : un échec ici (retour d'erreur ou exception du SDK) ne doit pas être présenté comme un échec
+    let neutralizeError: { code?: string; message?: string } | null = null;
+    try {
+      ({ error: neutralizeError } = await auth.changePassword({
+        currentPassword, newPassword: randomBytes(32).toString('base64url'), revokeOtherSessions: true,
+      }));
+    } catch (e) {
+      neutralizeError = e as Error;
+    }
     if (neutralizeError) {
       // sans gravité : l'ancien compte n'est plus relié à aucun utilisateur de l'app
       console.error(`Ajout d'email : ancien compte Neon ${me.authId} non neutralisé (utilisateur ${me.id} relié à ${newId}):`, neutralizeError.code ?? neutralizeError.message);
     }
-    // En dernier : le cookie de session final est celui du nouveau compte
-    const { data: fresh } = await auth.signIn.email({ email, password: currentPassword });
-    if (!fresh) console.error(`Ajout d'email : reconnexion au nouveau compte ${newId} impossible, l'utilisateur devra se reconnecter`);
+    // En dernier : changePassword a posé un cookie de l'ancien compte, le cookie final doit être celui du nouveau
+    const { data: fresh, error: freshError } = await auth.signIn.email({ email, password: currentPassword });
+    if (!fresh) {
+      console.error(`Ajout d'email : utilisateur ${me.id} migré vers ${newId}, reconnexion finale refusée:`, freshError?.code ?? freshError?.message);
+      return { success: false, error: 'Email ajouté, mais la session a été fermée : reconnectez-vous avec votre pseudo et votre mot de passe' };
+    }
 
     return { success: true, email };
   } catch (error) {
@@ -255,8 +277,8 @@ export async function requestPasswordReset(email: string) {
     if (invalid) return { success: false as const, error: invalid };
     if (await hitLimit('reset', email, 3)) return TOO_MANY;
 
-    const user = await db.orm.public.User.where((u) => or(u.authEmail.eq(email), u.email.eq(email))).first();
-    if (user && signInEmail(user) === email) {
+    const users = await db.orm.public.User.where((u) => or(u.authEmail.ilike(exactly(email)), u.email.ilike(exactly(email)))).all();
+    if (users.some((u) => normEmail(signInEmail(u)) === email)) {
       // Neon n'accepte qu'une redirection vers l'origine de la requête (localhost) ou un domaine de confiance
       const h = await headers();
       const origin = h.get('origin') ?? `https://${h.get('host')}`;
