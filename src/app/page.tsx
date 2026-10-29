@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import EventCountdown from '@/components/EventCountdown';
 import Link from 'next/link';
-import { getAllActiveEvents, leaveSharedEvent } from '@/lib/actions';
+import { getAllActiveEvents, getCurrentUser, leaveSharedEvent } from '@/lib/actions';
 import NotificationToast from '@/components/NotificationToast';
 import ConfirmModal from '@/components/ConfirmModal';
 import UserMenu from '@/components/UserMenu';
@@ -37,82 +37,40 @@ export default function HomePage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
-    // Vérifier si l'utilisateur est connecté
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        setUserId(user.id);
-      } catch (error) {
-        console.error('Erreur lors de la lecture des données utilisateur:', error);
-      }
-    }
-    // Marquer l'initialisation comme terminée
-    setIsInitializing(false);
+    // La session serveur fait foi : le localStorage ne sert qu'à l'affichage
+    getCurrentUser().then(user => {
+      if (!user) localStorage.removeItem('user');
+      setUserId(user?.id ?? null);
+      setIsInitializing(false);
+    });
 
-    // Écouter les changements du localStorage pour la déconnexion
+    // Déconnexion depuis un autre onglet
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'user') {
-        if (e.newValue === null) {
-          // L'utilisateur s'est déconnecté
-          setUserId(null);
-          setEvents([]);
-        } else if (e.newValue) {
-          // L'utilisateur s'est connecté
-          try {
-            const user = JSON.parse(e.newValue);
-            setUserId(user.id);
-          } catch (error) {
-            console.error('Erreur lors de la lecture des données utilisateur:', error);
-          }
-        }
-      }
-    };
-
-    // Écouter les changements du localStorage (pour les onglets multiples)
-    window.addEventListener('storage', handleStorageChange);
-
-    // Écouter les changements du localStorage dans le même onglet
-    const handleLocalStorageChange = () => {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser === null && userId !== null) {
-        // L'utilisateur s'est déconnecté
+      if (e.key === 'user' && e.newValue === null) {
         setUserId(null);
         setEvents([]);
-      } else if (storedUser && userId === null) {
-        // L'utilisateur s'est connecté
-        try {
-          const user = JSON.parse(storedUser);
-          setUserId(user.id);
-        } catch (error) {
-          console.error('Erreur lors de la lecture des données utilisateur:', error);
-        }
       }
     };
 
-    // Écouter l'événement personnalisé de déconnexion
+    // Déconnexion depuis ce même onglet (UserMenu)
     const handleUserLogout = () => {
       setUserId(null);
       setEvents([]);
     };
 
-    // Créer un intervalle pour vérifier les changements du localStorage
-    const interval = setInterval(handleLocalStorageChange, 100);
-
-    // Ajouter l'écouteur d'événement pour la déconnexion
+    window.addEventListener('storage', handleStorageChange);
     window.addEventListener('userLogout', handleUserLogout);
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('userLogout', handleUserLogout);
-      clearInterval(interval);
     };
-  }, [userId]);
+  }, []);
 
   const loadEvents = useCallback(async () => {
     try {
       // Récupérer les événements de l'utilisateur connecté
-      const result = await getAllActiveEvents(userId || undefined);
+      const result = await getAllActiveEvents();
       
       if (result.success && result.events) {
         setEvents(result.events);
@@ -148,7 +106,7 @@ export default function HomePage() {
     if (!confirmModal.eventId) return;
 
     try {
-      const result = await leaveSharedEvent(confirmModal.eventId, userId!);
+      const result = await leaveSharedEvent(confirmModal.eventId);
       
       if (result.success) {
         setNotification({

@@ -4,19 +4,15 @@
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
-generator client {
-  provider = "prisma-client-js"
-}
-
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model User {
   id        String   @id @default(cuid())
   username  String   @unique // Pseudo unique de l'utilisateur
-  password  String   // Hash du mot de passe (bcrypt)
+  password  String?  // Ancien hash bcrypt, vidé après migration vers Neon Auth
+  authId    String?  @unique // Id de l'utilisateur dans Neon Auth (neon_auth.user)
   email     String?  @unique // Email optionnel
   isAdmin   Boolean  @default(false) // Indique si l'utilisateur est administrateur
   createdAt DateTime @default(now())

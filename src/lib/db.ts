@@ -1,9 +1,2 @@
-import { PrismaClient } from '@prisma/client';
-
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
-
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
-
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+// Client Prisma 8 (généré par `prisma orm init`, voir src/prisma/db.ts)
+export { db } from '../prisma/db';

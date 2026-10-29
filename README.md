@@ -53,15 +53,21 @@ npm install
 cp .env.example .env
 
 # Configurer vos variables d'environnement
-NEXT_PUBLIC_ADMIN_USERNAME=votre_username
-NEXT_PUBLIC_ADMIN_PASSWORD=votre_password
+NEON_AUTH_BASE_URL=url_auth_de_la_console_neon
+NEON_AUTH_COOKIE_SECRET=une_chaine_de_32_caracteres_minimum   # openssl rand -base64 32
+ADMIN_USERNAME=pseudo_du_futur_admin
+
+# Après vous être inscrit sur le site : promouvoir ce compte admin
+npm run seed
 DATABASE_URL="postgresql://user:password@localhost:5432/listing"
 ```
 
 4. **Initialiser la base de données**
 ```bash
-npx prisma generate
-npx prisma db push
+# Le schéma reste dans prisma/schema.prisma (géré par la CLI Prisma 7 installée sous le nom prisma7)
+npx prisma7 db push
+# Puis régénérer le contrat lu par le client Prisma 8 (src/prisma/contract.*)
+npx prisma contract emit
 ```
 
 5. **Lancer l'application**
@@ -114,7 +120,7 @@ L'application sera accessible sur `http://localhost:3000`
 
 - **Frontend** : Next.js 15, React 18, TypeScript
 - **Styling** : Tailwind CSS
-- **Base de données** : PostgreSQL avec Prisma ORM
+- **Base de données** : PostgreSQL (Neon) avec Prisma ORM 8 (release candidate)
 - **Icons** : Lucide React
 - **Dates** : date-fns
 

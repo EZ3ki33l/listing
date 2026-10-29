@@ -1,8 +1,15 @@
 'use server';
 
-import { prisma } from './db';
+import { and, or } from '@prisma/orm-postgres/orm-client';
+import { db } from './db';
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
 import bcrypt from 'bcryptjs';
+import { auth } from './auth/server';
+import { getSessionUser } from './session';
+import { isLimited, recordFailure, clearFailures } from './rateLimit';
+import { shouldAutoHide, reactivationDate } from './recurring';
+import { parseTimestamp, toDates } from './dates';
 
 // Types
 export interface CreateEventData {
@@ -11,7 +18,6 @@ export interface CreateEventData {
   targetDate?: Date;
   hasTargetDate?: boolean;
   isPrivate?: boolean;
-  ownerId: string; // ID de l'utilisateur propriétaire
 }
 
 export interface CreateShoppingItemData {
@@ -27,37 +33,58 @@ export interface CreateShoppingItemData {
 export interface UpdateItemStatusData {
   itemId: string;
   isPurchased: boolean;
-  purchasedBy?: string;
 }
+
+const NO_AUTH = { success: false, error: 'Vous devez être connecté' } as const;
+const FORBIDDEN = { success: false, error: 'Accès refusé' } as const;
+
+// Droits de l'utilisateur sur un événement : null s'il n'y a aucun accès
+async function eventAccess(eventId: string, userId: string) {
+  const event = await db.orm.public.Event.where({ id: eventId }).select('ownerId').first();
+  if (!event) return null;
+  if (event.ownerId === userId) return { isOwner: true, canEdit: true };
+  const share = await db.orm.public.EventShare.where({ eventId, userId }).first();
+  return share ? { isOwner: false, canEdit: share.canEdit } : null;
+}
+
+// Neon Auth identifie par e-mail ; l'application identifie par pseudo (e-mail optionnel)
+// -> sans e-mail réel, on en dérive un du pseudo (pas de réinitialisation de mot de passe par mail possible)
+const authEmail = (username: string, email?: string | null) =>
+  email || `${Buffer.from(username.toLowerCase()).toString('hex')}@listing.invalid`;
 
 // Actions pour l'authentification des utilisateurs
 export async function registerUser(username: string, password: string, email?: string) {
   try {
+    username = username.trim();
+    if (!username || username.length > 32) {
+      return { success: false, error: 'Nom d\'utilisateur requis (32 caractères maximum)' };
+    }
+    if (password.length < 8) {
+      return { success: false, error: 'Le mot de passe doit contenir au moins 8 caractères' };
+    }
+
     // Vérifier si l'utilisateur existe déjà
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { username },
-          ...(email ? [{ email }] : [])
-        ]
-      }
-    });
+    const existingUser = await db.orm.public.User
+      .where((u) => (email ? or(u.username.eq(username), u.email.eq(email)) : u.username.eq(username)))
+      .first();
 
     if (existingUser) {
       return { success: false, error: 'Nom d\'utilisateur ou email déjà utilisé' };
     }
 
-    // Hasher le mot de passe
-    const hashedPassword = await bcrypt.hash(password, 12);
+    const { data, error } = await auth.signUp.email({ email: authEmail(username, email), name: username, password });
+    if (error || !data) {
+      return { success: false, error: error?.message || 'Erreur lors de l\'inscription' };
+    }
 
-    // Créer l'utilisateur
-    const user = await prisma.user.create({
-      data: {
-        username,
-        password: hashedPassword,
-        email
-      }
-    });
+    let user;
+    try {
+      user = await db.orm.public.User.create({ username, email: email ?? null, authId: data.user.id });
+    } catch (dbError) {
+      await auth.deleteUser(); // la session ouverte par l'inscription sert à supprimer le compte orphelin
+      throw dbError;
+    }
+    await auth.signOut(); // l'interface renvoie vers l'écran de connexion
 
     revalidatePath('/');
     return { success: true, user: { id: user.id, username: user.username, email: user.email } };
@@ -67,32 +94,53 @@ export async function registerUser(username: string, password: string, email?: s
   }
 }
 
+const LOGIN_ERROR = { success: false, error: 'Nom d\'utilisateur ou mot de passe incorrect' } as const;
+
 export async function authenticateUser(username: string, password: string) {
   try {
-    // Trouver l'utilisateur
-    const user = await prisma.user.findUnique({
-      where: { username },
+    const ip = (await headers()).get('x-forwarded-for')?.split(',')[0].trim() || 'inconnue';
+    const userKey = `u:${username.toLowerCase()}`;
+    const ipKey = `ip:${ip}`;
 
-    });
-
-    if (!user) {
-      return { success: false, error: 'Nom d\'utilisateur ou mot de passe incorrect' };
+    if (isLimited(userKey, 5) || isLimited(ipKey, 20)) {
+      return { success: false, error: 'Trop de tentatives, réessayez dans 15 minutes' };
     }
 
-    // Vérifier le mot de passe
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
-      return { success: false, error: 'Nom d\'utilisateur ou mot de passe incorrect' };
+    const user = await db.orm.public.User.where({ username }).first();
+    const email = user && authEmail(user.username, user.email);
+    let ok = false;
+
+    if (user && email && user.authId) {
+      const { data, error } = await auth.signIn.email({ email, password });
+      ok = !error && !!data;
+    } else if (user && email && user.password && await bcrypt.compare(password, user.password)) {
+      // Migration paresseuse : ancien compte (hash bcrypt) -> compte Neon Auth créé avec le mot de passe saisi
+      // shortcut: retirer ce bloc, bcryptjs et User.password quand tous les comptes sont migrés
+      let { data } = await auth.signUp.email({ email, name: user.username, password });
+      if (!data) ({ data } = await auth.signIn.email({ email, password })); // compte Neon déjà créé par un essai précédent
+      if (data) {
+        await db.orm.public.User.where({ id: user.id }).update({ authId: data.user.id, password: null });
+        ok = true;
+      } else {
+        return { success: false, error: 'Migration du compte impossible, contactez l\'administrateur' };
+      }
     }
 
-    return { 
-      success: true, 
-      user: { 
-        id: user.id, 
-        username: user.username, 
+    if (!user || !ok) {
+      recordFailure(userKey);
+      recordFailure(ipKey);
+      return LOGIN_ERROR;
+    }
+
+    clearFailures(userKey);
+    return {
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
         email: user.email,
         isAdmin: user.isAdmin
-      } 
+      }
     };
   } catch (error) {
     console.error('Erreur lors de l\'authentification:', error);
@@ -100,63 +148,55 @@ export async function authenticateUser(username: string, password: string) {
   }
 }
 
-export async function getUserEvents(userId: string) {
+export async function logoutUser() {
+  await auth.signOut();
+  return { success: true };
+}
+
+// Utilisateur de la session, ou null (sert à l'interface pour savoir si la session serveur est valide)
+export async function getCurrentUser() {
+  return getSessionUser();
+}
+
+export async function getUserEvents() {
   try {
+    const me = await getSessionUser();
+    if (!me) return NO_AUTH;
+
     // Masquer automatiquement les événements récurrents passés (anniversaires, Noël, etc.)
-    await autoHidePastRecurringEvents();
+    await autoHidePastRecurringEvents(me.id);
 
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        ownedEvents: {
-          include: {
-            items: {
-              include: {
-                category: true,
-                photos: true
-              }
-            }
-          }
-        },
-        sharedEvents: {
-          include: {
-            event: {
-              include: {
-                owner: true,
-                items: {
-                  include: {
-                    category: true,
-                    photos: true
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    });
+    const owned = await db.orm.public.Event
+      .where({ ownerId: me.id })
+      .include('items', (items) => items.include('category').include('photos'))
+      .all();
 
-    if (!user) {
-      return { success: false, error: 'Utilisateur non trouvé' };
-    }
+    const shares = await db.orm.public.EventShare
+      .where({ userId: me.id })
+      .include('event', (event) =>
+        event
+          .include('owner', (owner) => owner.select('id', 'username'))
+          .include('items', (items) => items.include('category').include('photos'))
+      )
+      .all();
 
     // Séparer les événements personnels et partagés
-    const ownedEvents = user.ownedEvents.map(event => ({
+    const ownedEvents = owned.map(event => ({
       ...event,
       isOwned: true,
       canEdit: true
     }));
 
-    const sharedEvents = user.sharedEvents.map(share => ({
+    const sharedEvents = shares.flatMap(share => share.event ? [{
       ...share.event,
       isOwned: false,
       canEdit: share.canEdit,
-      sharedBy: share.event.owner.username
-    }));
+      sharedBy: share.event.owner?.username
+    }] : []);
 
-    return { 
-      success: true, 
-      events: [...ownedEvents, ...sharedEvents] 
+    return {
+      success: true,
+      events: toDates([...ownedEvents, ...sharedEvents])
     };
   } catch (error) {
     console.error('Erreur lors de la récupération des événements:', error);
@@ -166,20 +206,18 @@ export async function getUserEvents(userId: string) {
 
 export async function shareEvent(eventId: string, targetUsername: string, canEdit: boolean = false) {
   try {
-    // Vérifier que l'événement existe et que l'utilisateur est propriétaire
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-      include: { owner: true }
-    });
+    const me = await getSessionUser();
+    if (!me) return NO_AUTH;
+
+    // Seul le propriétaire peut partager
+    const event = await db.orm.public.Event.where({ id: eventId, ownerId: me.id }).first();
 
     if (!event) {
       return { success: false, error: 'Événement non trouvé' };
     }
 
     // Vérifier que l'utilisateur cible existe
-    const targetUser = await prisma.user.findUnique({
-      where: { username: targetUsername }
-    });
+    const targetUser = await db.orm.public.User.where({ username: targetUsername }).first();
 
     if (!targetUser) {
       return { success: false, error: 'Utilisateur non trouvé' };
@@ -191,31 +229,18 @@ export async function shareEvent(eventId: string, targetUsername: string, canEdi
     }
 
     // Vérifier que le partage n'existe pas déjà
-    const existingShare = await prisma.eventShare.findUnique({
-      where: {
-        eventId_userId: {
-          eventId,
-          userId: targetUser.id
-        }
-      }
-    });
+    const existingShare = await db.orm.public.EventShare.where({ eventId, userId: targetUser.id }).first();
 
     if (existingShare) {
       return { success: false, error: 'Cet événement est déjà partagé avec cet utilisateur' };
     }
 
     // Créer le partage
-    await prisma.eventShare.create({
-      data: {
-        eventId,
-        userId: targetUser.id,
-        canEdit
-      }
-    });
+    await db.orm.public.EventShare.create({ eventId, userId: targetUser.id, canEdit });
 
     revalidatePath('/');
     revalidatePath('/liste');
-    
+
     return { success: true, message: `Événement partagé avec ${targetUsername}` };
   } catch (error) {
     console.error('Erreur lors du partage:', error);
@@ -226,19 +251,21 @@ export async function shareEvent(eventId: string, targetUsername: string, canEdi
 // Actions pour les événements
 export async function createEvent(data: CreateEventData) {
   try {
-    const event = await prisma.event.create({
-      data: {
-        name: data.name,
-        eventType: data.eventType,
-        targetDate: data.hasTargetDate && data.targetDate ? data.targetDate : null,
-        hasTargetDate: data.hasTargetDate ?? true,
-        isPrivate: data.isPrivate ?? false,
-        ownerId: data.ownerId,
-      },
+    const me = await getSessionUser();
+    if (!me) return NO_AUTH;
+    if (!data.name?.trim()) return { success: false, error: 'Nom de l\'événement requis' };
+
+    await db.orm.public.Event.create({
+      name: data.name,
+      eventType: data.eventType,
+      targetDate: data.hasTargetDate && data.targetDate ? data.targetDate.toISOString() : null,
+      hasTargetDate: data.hasTargetDate ?? true,
+      isPrivate: data.isPrivate ?? false,
+      ownerId: me.id,
     });
 
     revalidatePath('/');
-    return { success: true, event };
+    return { success: true };
   } catch (error) {
     console.error('Erreur lors de la création de l\'événement:', error);
     return { success: false, error: 'Erreur lors de la création de l\'événement' };
@@ -253,20 +280,22 @@ export async function updateEvent(eventId: string, data: {
   isPrivate: boolean;
 }) {
   try {
-    const event = await prisma.event.update({
-      where: { id: eventId },
-      data: {
-        name: data.name,
-        eventType: data.eventType,
-        targetDate: data.hasTargetDate && data.targetDate ? data.targetDate : null,
-        hasTargetDate: data.hasTargetDate,
-        isPrivate: data.isPrivate,
-      },
+    const me = await getSessionUser();
+    if (!me) return NO_AUTH;
+    if (!data.name?.trim()) return { success: false, error: 'Nom de l\'événement requis' };
+
+    const count = await db.orm.public.Event.where({ id: eventId, ownerId: me.id }).updateAndCount({
+      name: data.name,
+      eventType: data.eventType,
+      targetDate: data.hasTargetDate && data.targetDate ? data.targetDate.toISOString() : null,
+      hasTargetDate: data.hasTargetDate,
+      isPrivate: data.isPrivate,
     });
+    if (count === 0) return FORBIDDEN;
 
     revalidatePath('/');
     revalidatePath('/user');
-    return { success: true, event };
+    return { success: true };
   } catch (error) {
     console.error('Erreur lors de la modification de l\'événement:', error);
     return { success: false, error: 'Erreur lors de la modification de l\'événement' };
@@ -274,30 +303,17 @@ export async function updateEvent(eventId: string, data: {
 }
 
 // Action pour masquer un événement
-export async function hideEvent(eventId: string, userId: string) {
+export async function hideEvent(eventId: string) {
   try {
-    // Vérifier que l'utilisateur est propriétaire de l'événement
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-      include: { owner: true }
-    });
+    const me = await getSessionUser();
+    if (!me) return NO_AUTH;
 
-    if (!event) {
-      return { success: false, error: 'Événement non trouvé' };
-    }
-
-    if (event.ownerId !== userId) {
-      return { success: false, error: 'Vous n\'êtes pas autorisé à masquer cet événement' };
-    }
-
-    const updatedEvent = await prisma.event.update({
-      where: { id: eventId },
-      data: { isHidden: true },
-    });
+    const count = await db.orm.public.Event.where({ id: eventId, ownerId: me.id }).updateAndCount({ isHidden: true });
+    if (count === 0) return { success: false, error: 'Vous n\'êtes pas autorisé à masquer cet événement' };
 
     revalidatePath('/');
     revalidatePath('/user');
-    return { success: true, event: updatedEvent };
+    return { success: true };
   } catch (error) {
     console.error('Erreur lors du masquage de l\'événement:', error);
     return { success: false, error: 'Erreur lors du masquage de l\'événement' };
@@ -305,160 +321,88 @@ export async function hideEvent(eventId: string, userId: string) {
 }
 
 // Action pour réactiver un événement (avec incrémentation d'année pour les anniversaires)
-export async function reactivateEvent(eventId: string, userId: string) {
+export async function reactivateEvent(eventId: string) {
   try {
-    // Vérifier que l'utilisateur est propriétaire de l'événement
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-      include: { owner: true }
-    });
+    const me = await getSessionUser();
+    if (!me) return NO_AUTH;
 
+    const event = await db.orm.public.Event.where({ id: eventId, ownerId: me.id }).first();
     if (!event) {
-      return { success: false, error: 'Événement non trouvé' };
-    }
-
-    if (event.ownerId !== userId) {
       return { success: false, error: 'Vous n\'êtes pas autorisé à réactiver cet événement' };
     }
 
-    const updateData: { isHidden: boolean; targetDate?: Date } = { isHidden: false };
+    const updateData: { isHidden: boolean; targetDate?: string } = { isHidden: false };
 
-    // Si c'est un anniversaire ou Noël avec une date, vérifier si la date de cette année est passée avant d'incrémenter
+    // Anniversaire ou Noël avec date : si la date de cette année est passée, on passe à l'année suivante
     if ((event.eventType === 'anniversaire' || event.eventType === 'noel') && event.targetDate && event.hasTargetDate) {
       const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const eventDate = new Date(event.targetDate);
-      const eventDateThisYear = new Date(today.getFullYear(), eventDate.getMonth(), eventDate.getDate());
-      
-      console.log(`🔍 [reactivateEvent] Événement: ${event.name}, Date stockée: ${eventDate.toISOString()}, Date cette année: ${eventDateThisYear.toISOString()}, Aujourd'hui: ${today.toISOString()}`);
-      
-      // Si la date de cette année est passée, incrémenter l'année de +1 par rapport à l'année actuelle
-      if (eventDateThisYear < today) {
-        const newDate = new Date(today.getFullYear() + 1, eventDate.getMonth(), eventDate.getDate());
-        updateData.targetDate = newDate;
-        console.log(`✅ [reactivateEvent] Date passée, incrémentation à: ${newDate.toISOString()}`);
-      } else {
-        console.log(`✅ [reactivateEvent] Date pas encore passée, réactivation sans modification de date`);
-      }
-      // Sinon, on garde la date actuelle (juste réactiver sans modifier la date)
+      const next = reactivationDate(parseTimestamp(event.targetDate), new Date(now.getFullYear(), now.getMonth(), now.getDate()));
+      if (next) updateData.targetDate = next.toISOString();
     }
 
-    console.log(`🔍 [reactivateEvent] Données de mise à jour:`, updateData);
-    const updatedEvent = await prisma.event.update({
-      where: { id: eventId },
-      data: updateData,
-    });
-    console.log(`✅ [reactivateEvent] Événement mis à jour: isHidden=${updatedEvent.isHidden}, targetDate=${updatedEvent.targetDate?.toISOString()}`);
+    await db.orm.public.Event.where({ id: eventId }).update(updateData);
 
     revalidatePath('/');
     revalidatePath('/user');
-    return { success: true, event: updatedEvent };
+    return { success: true };
   } catch (error) {
     console.error('Erreur lors de la réactivation de l\'événement:', error);
     return { success: false, error: 'Erreur lors de la réactivation de l\'événement' };
   }
 }
 
-// Fonction pour masquer automatiquement les événements récurrents passés (anniversaires, Noël, etc.)
-async function autoHidePastRecurringEvents() {
+// Masque les événements récurrents passés (anniversaires, Noël) de cet utilisateur
+// shortcut: écrit en base lors d'une lecture, déplacer dans un cron quotidien si le volume grossit
+async function autoHidePastRecurringEvents(ownerId: string) {
   try {
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    // Trouver tous les événements récurrents actifs et non masqués avec une date passée
-    const pastRecurringEvents = await prisma.event.findMany({
-      where: {
-        eventType: { in: ['anniversaire', 'noel'] },
-        isActive: true,
-        isHidden: false,
-        hasTargetDate: true,
-        targetDate: { not: null }
-      }
-    });
+    const recurringEvents = await db.orm.public.Event
+      .where((e) => and(
+        e.ownerId.eq(ownerId),
+        e.eventType.in(['anniversaire', 'noel']),
+        e.isActive.eq(true),
+        e.isHidden.eq(false),
+        e.hasTargetDate.eq(true),
+        e.targetDate.isNotNull()
+      ))
+      .select('id', 'targetDate')
+      .all();
 
-    console.log(`🔍 [autoHidePastRecurringEvents] Trouvé ${pastRecurringEvents.length} événement(s) récurrent(s) à vérifier`);
+    const idsToHide = recurringEvents
+      .filter(event => event.targetDate && shouldAutoHide(parseTimestamp(event.targetDate), today))
+      .map(event => event.id);
 
-    // Filtrer ceux dont la date est passée (en comparant seulement le jour et le mois)
-    const eventsToHide = pastRecurringEvents.filter(event => {
-      if (!event.targetDate) return false;
-      const eventDate = new Date(event.targetDate);
-      
-      // Si la date stockée est dans le futur, ne pas masquer
-      if (eventDate > today) {
-        console.log(`✅ [autoHidePastRecurringEvents] Pas de masquage pour ${event.name} (${event.id}): date stockée ${eventDate.toISOString()} est dans le futur`);
-        return false;
-      }
-      
-      // Comparer seulement le jour et le mois avec cette année
-      const eventDateThisYear = new Date(today.getFullYear(), eventDate.getMonth(), eventDate.getDate());
-      
-      // Si la date de cette année est passée, masquer l'événement
-      const shouldHide = eventDateThisYear < today;
-      if (shouldHide) {
-        console.log(`🔍 [autoHidePastRecurringEvents] Masquage de ${event.name} (${event.id}): date stockée ${eventDate.toISOString()}, date cette année ${eventDateThisYear.toISOString()} < aujourd'hui ${today.toISOString()}`);
-      } else {
-        console.log(`✅ [autoHidePastRecurringEvents] Pas de masquage pour ${event.name} (${event.id}): date cette année ${eventDateThisYear.toISOString()} >= aujourd'hui ${today.toISOString()}`);
-      }
-      return shouldHide;
-    });
-
-    // Masquer tous les événements récurrents passés
-    if (eventsToHide.length > 0) {
-      await prisma.event.updateMany({
-        where: {
-          id: { in: eventsToHide.map(e => e.id) }
-        },
-        data: {
-          isHidden: true
-        }
-      });
-      const birthdaysCount = eventsToHide.filter(e => e.eventType === 'anniversaire').length;
-      const noelCount = eventsToHide.filter(e => e.eventType === 'noel').length;
-      console.log(`✅ ${eventsToHide.length} événement(s) récurrent(s) masqué(s) automatiquement (${birthdaysCount} anniversaire(s), ${noelCount} Noël)`);
+    if (idsToHide.length > 0) {
+      await db.orm.public.Event.where((e) => e.id.in(idsToHide)).updateAll({ isHidden: true });
     }
-
-    return { success: true, hiddenCount: eventsToHide.length };
   } catch (error) {
     console.error('Erreur lors du masquage automatique des événements récurrents:', error);
-    return { success: false, error: 'Erreur lors du masquage automatique' };
   }
 }
 
-export async function getEvent(eventId: string, userId?: string) {
+export async function getEvent(eventId: string) {
   try {
-    // Si l'utilisateur n'est pas connecté, ne pas permettre l'accès
-    if (!userId) {
-      return { success: false, error: 'Accès non autorisé' };
-    }
+    const me = await getSessionUser();
+    if (!me) return NO_AUTH;
+    const userId = me.id;
 
-    // Construire la requête avec vérification des permissions
-    const whereClause = {
-      id: eventId,
-      isActive: true,
-      OR: [
-        { ownerId: userId }, // L'utilisateur est propriétaire
-        { shares: { some: { userId } } } // L'événement est partagé avec l'utilisateur
-      ]
-    };
-
-    const event = await prisma.event.findFirst({
-      where: whereClause,
-      include: {
-        owner: true,
-        shares: {
-          where: { userId },
-          select: { canEdit: true }
-        },
-        items: {
-          include: {
-            photos: {
-              orderBy: { order: 'asc' },
-            },
-            category: true,
-          },
-        },
-      },
-    });
+    const event = await db.orm.public.Event
+      .where((e) => and(
+        e.id.eq(eventId),
+        e.isActive.eq(true),
+        or(
+          e.ownerId.eq(userId), // L'utilisateur est propriétaire
+          e.shares.some((s) => s.userId.eq(userId)) // L'événement est partagé avec l'utilisateur
+        )
+      ))
+      .include('owner', (owner) => owner.select('id', 'username'))
+      .include('shares', (shares) => shares.where({ userId }))
+      .include('items', (items) =>
+        items.include('photos', (photos) => photos.orderBy((p) => p.order.asc())).include('category')
+      )
+      .first();
 
     if (!event) {
       return { success: false, error: 'Événement non trouvé ou accès non autorisé' };
@@ -471,93 +415,14 @@ export async function getEvent(eventId: string, userId?: string) {
     // Ajouter les informations de permission à l'événement
     const eventWithPermissions = {
       ...event,
+      owner: event.owner!, // clé étrangère obligatoire
       isOwned: isOwner,
       canEdit: canEdit
     };
 
-    return { success: true, event: eventWithPermissions };
+    return { success: true, event: toDates(eventWithPermissions) };
   } catch (error) {
     console.error('Erreur lors de la récupération de l\'événement:', error);
-    return { success: false, error: 'Erreur lors de la récupération de l\'événement' };
-  }
-}
-
-// Fonction pour vérifier l'accès aux événements privés
-export async function checkEventAccess(eventId: string, adminPassword?: string) {
-  try {
-    const event = await prisma.event.findUnique({
-      where: { id: eventId },
-      select: { isPrivate: true }
-    });
-
-    if (!event) {
-      return { success: false, error: 'Événement non trouvé' };
-    }
-
-    // If the event is not private, access is allowed
-    if (!event.isPrivate) {
-      return { success: true, hasAccess: true };
-    }
-
-    // If the event is private, check the admin password
-    if (!adminPassword) {
-      return { success: true, hasAccess: false, requiresPassword: true };
-    }
-
-    // Check the admin password - vérifier si un utilisateur admin existe avec ce mot de passe
-    const adminUser = await prisma.user.findFirst({
-      where: { 
-        isAdmin: true,
-        password: adminPassword 
-      }
-    });
-
-    if (adminUser) {
-      return { success: true, hasAccess: true };
-    } else {
-      return { success: true, hasAccess: false, requiresPassword: true };
-    }
-  } catch (error) {
-    console.error('Erreur lors de la vérification de l\'accès:', error);
-    return { success: false, error: 'Erreur lors de la vérification de l\'accès' };
-  }
-}
-
-export async function deleteEvent(eventId: string) {
-  try {
-    // Supprimer l'événement et tous ses éléments associés en cascade
-    await prisma.event.delete({
-      where: { id: eventId }
-    });
-    
-    revalidatePath('/');
-    revalidatePath('/admin');
-    return { success: true };
-  } catch (error) {
-    console.error('Erreur lors de la suppression de l\'événement:', error);
-    return { success: false, error: 'Erreur lors de la suppression de l\'événement' };
-  }
-}
-
-export async function getActiveEvent() {
-  try {
-    const event = await prisma.event.findFirst({
-      where: { isActive: true },
-      include: {
-        items: {
-          include: {
-            photos: {
-              orderBy: { order: 'asc' },
-            },
-            category: true,
-          },
-        },
-      },
-    });
-
-    return { success: true, event };
-  } catch (error) {
-    console.error('Erreur lors de la récupération de l\'événement actif:', error);
     return { success: false, error: 'Erreur lors de la récupération de l\'événement' };
   }
 }
@@ -565,33 +430,41 @@ export async function getActiveEvent() {
 // Actions pour les articles
 export async function createShoppingItem(data: CreateShoppingItemData) {
   try {
-    const item = await prisma.shoppingItem.create({
-      data: {
+    const me = await getSessionUser();
+    if (!me) return NO_AUTH;
+
+    const access = await eventAccess(data.eventId, me.id);
+    if (!access?.canEdit) return FORBIDDEN;
+
+    if (!data.name?.trim()) return { success: false, error: 'Nom de l\'article requis' };
+    if (data.price != null && (!Number.isFinite(data.price) || data.price < 0)) {
+      return { success: false, error: 'Prix invalide' };
+    }
+    if (data.purchaseUrl && !/^https?:\/\//i.test(data.purchaseUrl)) {
+      return { success: false, error: 'Le lien d\'achat doit commencer par http:// ou https://' };
+    }
+
+    await db.transaction(async (tx) => {
+      const item = await tx.orm.public.ShoppingItem.create({
         name: data.name,
-        description: data.description,
-        price: data.price,
-        purchaseUrl: data.purchaseUrl, // Lien d'achat
+        description: data.description ?? null,
+        price: data.price ?? null,
+        purchaseUrl: data.purchaseUrl ?? null, // Lien d'achat
         eventId: data.eventId, // Maintenant directement lié à l'événement
-        categoryId: data.categoryId, // Ajouter la catégorie
-        photos: {
-          create: data.photos.map((photo, index) => ({
-            imageUrl: photo.imageUrl,
-            altText: photo.altText,
-            order: index + 1,
-          })),
-        },
-      },
-      include: {
-        photos: {
-          orderBy: { order: 'asc' },
-        },
-        category: true, // Inclure la catégorie dans le résultat
-      },
+        categoryId: data.categoryId ?? null, // Ajouter la catégorie
+      });
+      for (const [index, photo] of data.photos.entries()) {
+        await tx.orm.public.ShoppingItemPhoto.create({
+          itemId: item.id,
+          imageUrl: photo.imageUrl,
+          altText: photo.altText ?? null,
+          order: index + 1,
+        });
+      }
     });
 
-    revalidatePath('/admin');
     revalidatePath('/liste');
-    return { success: true, item };
+    return { success: true };
   } catch (error) {
     console.error('Erreur lors de la création de l\'article:', error);
     return { success: false, error: 'Erreur lors de la création de l\'article' };
@@ -600,23 +473,33 @@ export async function createShoppingItem(data: CreateShoppingItemData) {
 
 export async function updateItemStatus(data: UpdateItemStatusData) {
   try {
-    const item = await prisma.shoppingItem.update({
-      where: { id: data.itemId },
-      data: {
-        isPurchased: data.isPurchased,
-        purchasedBy: data.purchasedBy,
-        purchasedAt: data.isPurchased ? new Date() : null,
-      },
-      include: {
-        photos: {
-          orderBy: { order: 'asc' },
-        },
-      },
-    });
+    const me = await getSessionUser();
+    if (!me) return NO_AUTH;
 
-    revalidatePath('/admin');
+    const item = await db.orm.public.ShoppingItem.where({ id: data.itemId }).select('eventId', 'purchasedBy').first();
+    if (!item || !(await eventAccess(item.eventId, me.id))) return FORBIDDEN;
+
+    if (data.isPurchased) {
+      // Atomique : si deux personnes cliquent en même temps, une seule passe
+      const count = await db.orm.public.ShoppingItem.where({ id: data.itemId, isPurchased: false }).updateAndCount({
+        isPurchased: true,
+        purchasedBy: me.username,
+        purchasedAt: new Date().toISOString()
+      });
+      if (count === 0) return { success: false, error: 'Cet article a déjà été acheté' };
+    } else {
+      // Seul l'acheteur (ou un admin) peut annuler ; 'Utilisateur' = ancien libellé générique
+      const canUndo = me.isAdmin || item.purchasedBy === me.username || item.purchasedBy === 'Utilisateur';
+      if (!canUndo) return { success: false, error: 'Seul l\'acheteur peut annuler cet achat' };
+      await db.orm.public.ShoppingItem.where({ id: data.itemId, isPurchased: true }).updateAndCount({
+        isPurchased: false,
+        purchasedBy: null,
+        purchasedAt: null
+      });
+    }
+
     revalidatePath('/liste');
-    return { success: true, item };
+    return { success: true };
   } catch (error) {
     console.error('Erreur lors de la mise à jour du statut:', error);
     return { success: false, error: 'Erreur lors de la mise à jour du statut' };
@@ -625,11 +508,14 @@ export async function updateItemStatus(data: UpdateItemStatusData) {
 
 export async function deleteShoppingItem(itemId: string) {
   try {
-    await prisma.shoppingItem.delete({
-      where: { id: itemId },
-    });
+    const me = await getSessionUser();
+    if (!me) return NO_AUTH;
 
-    revalidatePath('/admin');
+    const item = await db.orm.public.ShoppingItem.where({ id: itemId }).select('eventId').first();
+    if (!item || !(await eventAccess(item.eventId, me.id))?.canEdit) return FORBIDDEN;
+
+    await db.orm.public.ShoppingItem.where({ id: itemId }).delete();
+
     revalidatePath('/liste');
     return { success: true };
   } catch (error) {
@@ -638,68 +524,23 @@ export async function deleteShoppingItem(itemId: string) {
   }
 }
 
-// Actions pour l'authentification admin
-export async function authenticateAdmin(username: string, password: string) {
-  try {
-    console.log('🔍 [SERVER] Tentative d\'authentification admin pour:', username);
-    const user = await prisma.user.findUnique({
-      where: { username }
-    });
-    console.log('🔍 [SERVER] Utilisateur trouvé:', user ? { id: user.id, username: user.username, isAdmin: user.isAdmin } : null);
-    
-    if (!user) {
-      console.log('❌ [SERVER] Utilisateur non trouvé');
-      return { success: false, error: 'Nom d\'utilisateur ou mot de passe incorrect' };
-    }
-    
-    if (!user.isAdmin) {
-      console.log('❌ [SERVER] Utilisateur n\'est pas admin');
-      return { success: false, error: 'Accès administrateur refusé' };
-    }
-    
-    console.log('🔍 [SERVER] Vérification du mot de passe...');
-    console.log('🔍 [SERVER] Mot de passe reçu:', password);
-    console.log('🔍 [SERVER] Hash stocké en base:', user.password.substring(0, 20) + '...');
-    
-    // Vérifier le mot de passe avec bcrypt
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    console.log('🔍 [SERVER] Résultat de la vérification du mot de passe:', isValidPassword);
-    
-    if (!isValidPassword) {
-      console.log('❌ [SERVER] Mot de passe incorrect');
-      return { success: false, error: 'Nom d\'utilisateur ou mot de passe incorrect' };
-    }
-    
-    console.log('✅ [SERVER] Authentification réussie !');
-    return {
-      success: true,
-      admin: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        createdAt: user.createdAt
-      }
-    };
-  } catch (error) {
-    console.error('❌ [SERVER] Erreur lors de l\'authentification:', error);
-    return { success: false, error: 'Erreur lors de l\'authentification' };
-  }
+async function requireAdmin() {
+  const me = await getSessionUser();
+  return me?.isAdmin ? me : null;
 }
-
-
 
 export async function createCategory(data: { name: string; color?: string; icon?: string }) {
   try {
-    const category = await prisma.category.create({
-      data: {
-        name: data.name,
-        color: data.color || '#3B82F6',
-        icon: data.icon
-      }
+    if (!(await requireAdmin())) return FORBIDDEN;
+
+    await db.orm.public.Category.create({
+      name: data.name,
+      color: data.color || '#3B82F6',
+      icon: data.icon ?? null
     });
-    
+
     revalidatePath('/admin');
-    return { success: true, category };
+    return { success: true };
   } catch (error) {
     console.error('Erreur lors de la création de la catégorie:', error);
     return { success: false, error: 'Erreur lors de la création de la catégorie' };
@@ -708,17 +549,16 @@ export async function createCategory(data: { name: string; color?: string; icon?
 
 export async function updateCategory(id: string, data: { name: string; color?: string; icon?: string }) {
   try {
-    const category = await prisma.category.update({
-      where: { id },
-      data: {
-        name: data.name,
-        color: data.color || '#3B82F6',
-        icon: data.icon
-      }
+    if (!(await requireAdmin())) return FORBIDDEN;
+
+    await db.orm.public.Category.where({ id }).update({
+      name: data.name,
+      color: data.color || '#3B82F6',
+      icon: data.icon ?? null
     });
-    
+
     revalidatePath('/admin');
-    return { success: true, category };
+    return { success: true };
   } catch (error) {
     console.error('Erreur lors de la modification de la catégorie:', error);
     return { success: false, error: 'Erreur lors de la modification de la catégorie' };
@@ -727,22 +567,20 @@ export async function updateCategory(id: string, data: { name: string; color?: s
 
 export async function deleteCategory(id: string) {
   try {
+    if (!(await requireAdmin())) return FORBIDDEN;
+
     // Vérifier si la catégorie est utilisée par des articles
-    const itemsWithCategory = await prisma.shoppingItem.findMany({
-      where: { categoryId: id }
-    });
-    
+    const itemsWithCategory = await db.orm.public.ShoppingItem.where({ categoryId: id }).select('id').all();
+
     if (itemsWithCategory.length > 0) {
-      return { 
-        success: false, 
-        error: `Impossible de supprimer cette catégorie car elle est utilisée par ${itemsWithCategory.length} article(s)` 
+      return {
+        success: false,
+        error: `Impossible de supprimer cette catégorie car elle est utilisée par ${itemsWithCategory.length} article(s)`
       };
     }
-    
-    await prisma.category.delete({
-      where: { id }
-    });
-    
+
+    await db.orm.public.Category.where({ id }).delete();
+
     revalidatePath('/admin');
     return { success: true, message: 'Catégorie supprimée avec succès' };
   } catch (error) {
@@ -753,10 +591,8 @@ export async function deleteCategory(id: string) {
 
 export async function getCategories() {
   try {
-    const categories = await prisma.category.findMany({
-      orderBy: { name: 'asc' }
-    });
-    return { success: true, categories };
+    const categories = await db.orm.public.Category.orderBy((c) => c.name.asc()).all();
+    return { success: true, categories: toDates(categories) };
   } catch (error) {
     console.error('Erreur lors de la récupération des catégories:', error);
     return { success: false, error: 'Erreur lors de la récupération des catégories' };
@@ -765,15 +601,11 @@ export async function getCategories() {
 
 export async function getCategoriesWithItemCount() {
   try {
-    const categories = await prisma.category.findMany({
-      include: {
-        _count: {
-          select: { items: true }
-        }
-      },
-      orderBy: { name: 'asc' }
-    });
-    
+    const categories = await db.orm.public.Category
+      .orderBy((c) => c.name.asc())
+      .include('items', (items) => items.count())
+      .all();
+
     return {
       success: true,
       categories: categories.map(cat => ({
@@ -781,7 +613,7 @@ export async function getCategoriesWithItemCount() {
         name: cat.name,
         color: cat.color,
         icon: cat.icon,
-        itemCount: cat._count.items
+        itemCount: cat.items
       }))
     };
   } catch (error) {
@@ -790,222 +622,106 @@ export async function getCategoriesWithItemCount() {
   }
 }
 
-// Action pour nettoyer complètement la base de données
-export async function clearDatabase() {
-  try {
-    // Supprimer tous les événements et leurs relations
-    await prisma.shoppingItemPhoto.deleteMany();
-    await prisma.shoppingItem.deleteMany();
-    await prisma.event.deleteMany();
-    await prisma.category.deleteMany();
-
-
-    // S'assurer qu'un admin existe toujours après le nettoyage
-    await ensureAdminExists();
-
-    revalidatePath('/');
-    revalidatePath('/admin');
-    revalidatePath('/liste');
-    
-    return { success: true, message: 'Base de données nettoyée avec succès (administrateur préservé)' };
-  } catch (error) {
-    console.error('Erreur lors du nettoyage de la base:', error);
-    return { success: false, error: 'Erreur lors du nettoyage de la base' };
-  }
-}
-
-// Action simple pour s'assurer qu'un admin existe avec les identifiants du .env
-export async function ensureAdminExists() {
-  try {
-    const adminUsername = process.env.NEXT_PUBLIC_ADMIN_USERNAME || 'admin';
-    const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'admin123';
-    
-    // Vérifier si l'admin existe déjà
-    const existingAdmin = await prisma.user.findUnique({
-      where: { username: adminUsername }
-    });
-    
-    if (existingAdmin && existingAdmin.isAdmin) {
-      console.log('✅ Admin existe déjà:', existingAdmin.username);
-      return { success: true, admin: existingAdmin };
-    }
-    
-    // Créer un nouvel admin
-    const hashedPassword = await bcrypt.hash(adminPassword, 12);
-    const newAdmin = await prisma.user.create({
-      data: {
-        username: adminUsername,
-        password: hashedPassword,
-        email: `${adminUsername}@admin.local`,
-        isAdmin: true
-      }
-    });
-    
-    console.log('✅ Nouvel admin créé:', newAdmin.username);
-    return { success: true, admin: newAdmin };
-  } catch (error) {
-    console.error('❌ Erreur lors de la création de l\'admin:', error);
-    return { success: false, error: 'Erreur lors de la création de l\'admin' };
-  }
-}
-
-// Action pour récupérer tous les événements actifs (sécurisée)
+// Action pour récupérer les événements actifs de l'utilisateur (les siens + ceux partagés avec lui)
 // Note: Cette fonction filtre les événements masqués pour la page d'accueil
-export async function getAllActiveEvents(userId?: string) {
+export async function getAllActiveEvents() {
   try {
+    const me = await getSessionUser();
+    if (!me) return { success: true, events: [] };
+    const userId = me.id;
+
     // Masquer automatiquement les événements récurrents passés (anniversaires, Noël, etc.)
-    await autoHidePastRecurringEvents();
+    await autoHidePastRecurringEvents(userId);
 
-    // Construire la requête de base
-    const whereClause: { 
-      isActive: boolean; 
-      isHidden?: boolean;
-      OR?: Array<{ ownerId: string } | { shares: { some: { userId: string } } }> 
-    } = { 
-      isActive: true,
-      isHidden: false // Ne pas afficher les événements masqués sur la page d'accueil
-    };
-    
-    // Si l'utilisateur n'est pas connecté, ne montrer AUCUN événement
-    if (!userId) {
-      return { success: true, events: [] };
-    }
-    
-    // Si l'utilisateur est connecté, montrer ses événements + événements partagés
-    whereClause.OR = [
-      { ownerId: userId }, // Ses propres événements
-      { shares: { some: { userId } } } // Événements partagés avec lui
-    ];
+    const events = await db.orm.public.Event
+      .where((e) => and(
+        e.isActive.eq(true),
+        e.isHidden.eq(false), // Ne pas afficher les événements masqués sur la page d'accueil
+        or(
+          e.ownerId.eq(userId), // Ses propres événements
+          e.shares.some((s) => s.userId.eq(userId)) // Événements partagés avec lui
+        )
+      ))
+      .orderBy((e) => e.targetDate.asc())
+      .include('owner', (owner) => owner.select('id', 'username'))
+      .include('items', (items) =>
+        items.include('photos', (photos) => photos.orderBy((p) => p.order.asc())).include('category')
+      )
+      .all();
 
-    const events = await prisma.event.findMany({
-      where: whereClause,
-      orderBy: { targetDate: 'asc' },
-      include: {
-        owner: true,
-        items: {
-          include: {
-            photos: {
-              orderBy: { order: 'asc' },
-            },
-            category: true,
-          },
-        },
-      },
-    });
-
-    return { success: true, events };
+    return { success: true, events: toDates(events.map(e => ({ ...e, owner: e.owner! }))) }; // clé étrangère obligatoire
   } catch (error) {
     console.error('Erreur lors de la récupération des événements actifs:', error);
     return { success: false, error: 'Erreur lors de la récupération des événements' };
   }
 }
 
-// Action pour récupérer les événements par type
-export async function getEventsByType(eventType: string) {
-  try {
-    const events = await prisma.event.findMany({
-      where: { 
-        isActive: true,
-        eventType: eventType
-      },
-      include: {
-        items: {
-          include: {
-            photos: {
-              orderBy: { order: 'asc' },
-            },
-            category: true,
-          },
-        },
-      },
-      orderBy: { targetDate: 'asc' }
-    });
-
-    return { success: true, events };
-  } catch (error) {
-    console.error('Erreur lors de la récupération des événements par type:', error);
-    return { success: false, error: 'Erreur lors de la récupération des événements' };
-  }
-}
-
 // Action pour se retirer d'un événement partagé
-export async function leaveSharedEvent(eventId: string, userId: string) {
+export async function leaveSharedEvent(eventId: string) {
   try {
-    // Vérifier que l'utilisateur est bien partagé sur cet événement
-    const eventShare = await prisma.eventShare.findFirst({
-      where: {
-        eventId: eventId,
-        userId: userId
-      },
-      include: {
-        event: {
-          include: {
-            owner: true
-          }
-        },
-        user: true
-      }
-    });
+    const me = await getSessionUser();
+    if (!me) return NO_AUTH;
 
-    if (!eventShare) {
+    // Vérifier que l'utilisateur est bien partagé sur cet événement
+    const eventShare = await db.orm.public.EventShare
+      .where({ eventId, userId: me.id })
+      .include('event', (event) => event.include('owner', (owner) => owner.select('id', 'username')))
+      .first();
+
+    if (!eventShare?.event) {
       return { success: false, error: 'Vous n\'êtes pas partagé sur cet événement' };
     }
 
     // Supprimer le partage
-    await prisma.eventShare.delete({
-      where: {
-        id: eventShare.id
-      }
-    });
+    await db.orm.public.EventShare.where({ id: eventShare.id }).delete();
 
     // Créer une notification pour le propriétaire
     try {
-      await prisma.notification.create({
+      await db.orm.public.Notification.create({
+        userId: eventShare.event.ownerId,
+        type: 'EVENT_LEAVE',
+        title: 'Un utilisateur s\'est retiré de votre événement',
+        message: `${me.username} s'est retiré de l'événement "${eventShare.event.name}"`,
         data: {
-          userId: eventShare.event.ownerId,
-          type: 'EVENT_LEAVE',
-          title: 'Un utilisateur s\'est retiré de votre événement',
-          message: `${eventShare.user.username || 'Un utilisateur'} s'est retiré de l'événement "${eventShare.event.name}"`,
-          data: {
-            eventId: eventId,
-            eventName: eventShare.event.name,
-            leavingUserId: userId,
-            leavingUsername: eventShare.user.username || 'Utilisateur inconnu'
-          },
-          isRead: false
-        }
+          eventId: eventId,
+          eventName: eventShare.event.name,
+          leavingUserId: me.id,
+          leavingUsername: me.username
+        },
+        isRead: false
       });
-      console.log('✅ Notification créée pour le propriétaire');
     } catch (notificationError) {
-      console.error('⚠️ Erreur lors de la création de la notification:', notificationError);
+      console.error('Erreur lors de la création de la notification:', notificationError);
       // On continue même si la notification échoue
     }
 
-    console.log('✅ Utilisateur retiré de l\'événement partagé');
-    return { 
-      success: true, 
+    return {
+      success: true,
       message: 'Vous vous êtes retiré de l\'événement',
       eventName: eventShare.event.name,
-      ownerUsername: eventShare.event.owner.username
+      ownerUsername: eventShare.event.owner?.username ?? ''
     };
   } catch (error) {
-    console.error('❌ Erreur lors du retrait de l\'événement partagé:', error);
+    console.error('Erreur lors du retrait de l\'événement partagé:', error);
     return { success: false, error: 'Erreur lors du retrait de l\'événement' };
   }
 }
 
-// Action pour récupérer les notifications d'un utilisateur
-export async function getUserNotifications(userId: string) {
+// Action pour récupérer les notifications de l'utilisateur connecté
+export async function getUserNotifications() {
   try {
-    const notifications = await prisma.notification.findMany({
-      where: { userId },
-      orderBy: { createdAt: 'desc' },
-      take: 50 // Limiter à 50 notifications récentes
-    });
+    const me = await getSessionUser();
+    if (!me) return NO_AUTH;
 
-    return { success: true, notifications };
+    const notifications = await db.orm.public.Notification
+      .where({ userId: me.id })
+      .orderBy((n) => n.createdAt.desc())
+      .limit(50) // Limiter à 50 notifications récentes
+      .all();
+
+    return { success: true, notifications: toDates(notifications) };
   } catch (error) {
-    console.error('❌ Erreur lors de la récupération des notifications:', error);
+    console.error('Erreur lors de la récupération des notifications:', error);
     return { success: false, error: 'Erreur lors de la récupération des notifications' };
   }
 }
@@ -1013,14 +729,16 @@ export async function getUserNotifications(userId: string) {
 // Action pour marquer une notification comme lue
 export async function markNotificationAsRead(notificationId: string) {
   try {
-    await prisma.notification.update({
-      where: { id: notificationId },
-      data: { isRead: true }
-    });
+    const me = await getSessionUser();
+    if (!me) return NO_AUTH;
 
-    return { success: true };
+    const count = await db.orm.public.Notification
+      .where({ id: notificationId, userId: me.id })
+      .updateAndCount({ isRead: true });
+
+    return count > 0 ? { success: true } : FORBIDDEN;
   } catch (error) {
-    console.error('❌ Erreur lors de la mise à jour de la notification:', error);
+    console.error('Erreur lors de la mise à jour de la notification:', error);
     return { success: false, error: 'Erreur lors de la mise à jour de la notification' };
   }
 }
@@ -1028,45 +746,32 @@ export async function markNotificationAsRead(notificationId: string) {
 // Action pour supprimer une notification
 export async function deleteNotification(notificationId: string) {
   try {
-    await prisma.notification.delete({
-      where: { id: notificationId }
-    });
+    const me = await getSessionUser();
+    if (!me) return NO_AUTH;
 
-    return { success: true };
+    const count = await db.orm.public.Notification
+      .where({ id: notificationId, userId: me.id })
+      .deleteAndCount();
+
+    return count > 0 ? { success: true } : FORBIDDEN;
   } catch (error) {
-    console.error('❌ Erreur lors de la suppression de la notification:', error);
+    console.error('Erreur lors de la suppression de la notification:', error);
     return { success: false, error: 'Erreur lors de la suppression de la notification' };
-  }
-}
-
-// Action pour recréer l'administrateur manuellement
-export async function recreateAdmin() {
-  try {
-    // Supprimer tous les utilisateurs admin existants
-    await prisma.user.deleteMany({
-      where: { isAdmin: true }
-    });
-    
-    console.log('✅ Tous les admin supprimés');
-    
-    // Recréer l'admin
-    return await ensureAdminExists();
-  } catch (error) {
-    console.error('❌ Erreur lors de la recréation de l\'admin:', error);
-    return { success: false, error: 'Erreur lors de la recréation de l\'admin' };
   }
 }
 
 // Action pour initialiser les catégories par défaut
 export async function initializeDefaultCategories() {
   try {
+    if (!(await requireAdmin())) return FORBIDDEN;
+
     // Vérifier si des catégories existent déjà
-    const existingCategories = await prisma.category.findMany();
-    
+    const existingCategories = await db.orm.public.Category.select('id').limit(1).all();
+
     if (existingCategories.length > 0) {
-      return { 
-        success: false, 
-        error: 'Des catégories existent déjà. Cette action ne peut être effectuée que sur une base vide.' 
+      return {
+        success: false,
+        error: 'Des catégories existent déjà. Cette action ne peut être effectuée que sur une base vide.'
       };
     }
 
@@ -1089,29 +794,20 @@ export async function initializeDefaultCategories() {
       { name: 'Loisirs & Hobbies', color: '#D97706', icon: '🎯' }
     ];
 
-    // Créer toutes les catégories
-    const createdCategories = await Promise.all(
-      defaultCategories.map(category => 
-        prisma.category.create({
-          data: {
-            name: category.name,
-            color: category.color,
-            icon: category.icon
-          }
-        })
-      )
-    );
+    // Créer toutes les catégories (tout ou rien)
+    await db.transaction(async (tx) => {
+      for (const category of defaultCategories) {
+        await tx.orm.public.Category.create(category);
+      }
+    });
 
-    console.log(`✅ ${createdCategories.length} catégories par défaut créées avec succès`);
-    
     revalidatePath('/admin');
-    return { 
-      success: true, 
-      message: `${createdCategories.length} catégories par défaut ont été créées avec succès !`,
-      categories: createdCategories
+    return {
+      success: true,
+      message: `${defaultCategories.length} catégories par défaut ont été créées avec succès !`
     };
   } catch (error) {
-    console.error('❌ Erreur lors de l\'initialisation des catégories par défaut:', error);
+    console.error('Erreur lors de l\'initialisation des catégories par défaut:', error);
     return { success: false, error: 'Erreur lors de l\'initialisation des catégories par défaut' };
   }
 }

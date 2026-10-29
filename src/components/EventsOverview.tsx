@@ -49,7 +49,7 @@ export default function EventsOverview() {
   useEffect(() => {
     const loadEvents = async () => {
       try {
-        const result = await getAllActiveEvents(userId || undefined);
+        const result = await getAllActiveEvents();
         if (result.success && result.events) {
           setEvents(result.events);
         }

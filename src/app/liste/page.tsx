@@ -86,7 +86,7 @@ function ListePageContent() {
     try {
       setIsLoading(true);
       const [eventResult, categoriesResult] = await Promise.all([
-        getEvent(eventId, currentUser.id),
+        getEvent(eventId),
         getCategories()
       ]);
 
@@ -189,16 +189,14 @@ function ListePageContent() {
     try {
       const result = await updateItemStatus({
         itemId,
-        isPurchased,
-        purchasedBy: 'Utilisateur'
+        isPurchased
       });
 
-      if (result.success) {
-        await loadEventData();
-        // Afficher la modal de remerciement seulement pour les événements d'anniversaire
-        if (isPurchased && event?.eventType === 'anniversaire') {
-          setShowThankYouModal(true);
-        }
+      if (!result.success) setMessage(`❌ ${result.error}`);
+      await loadEventData();
+      // Afficher la modal de remerciement seulement pour les événements d'anniversaire
+      if (result.success && isPurchased && event?.eventType === 'anniversaire') {
+        setShowThankYouModal(true);
       }
     } catch (error) {
       console.error('Erreur lors de la mise à jour du statut:', error);

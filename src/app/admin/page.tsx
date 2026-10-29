@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { authenticateAdmin, createCategory, updateCategory, deleteCategory, getCategoriesWithItemCount } from '@/lib/actions';
+import { authenticateUser, getCurrentUser, logoutUser, createCategory, updateCategory, deleteCategory, getCategoriesWithItemCount } from '@/lib/actions';
 import DefaultCategoriesInitializer from '@/components/DefaultCategoriesInitializer';
 
 interface Category {
@@ -16,9 +16,6 @@ interface Category {
 interface AdminData {
   id: string;
   username: string;
-  email: string | null;
-  createdAt: Date;
-  isAdmin?: boolean;
 }
 
 export default function AdminPage() {
@@ -39,58 +36,15 @@ export default function AdminPage() {
 
 
   useEffect(() => {
-    // Vérifier si l'admin est déjà connecté
-    console.log('🔍 [ADMIN] Vérification de la session...');
-    
-    // 1. Vérifier la session admin existante
-    const savedAdmin = localStorage.getItem('adminSession');
-    console.log('🔍 [ADMIN] Session admin trouvée:', savedAdmin ? 'OUI' : 'NON');
-    
-    if (savedAdmin) {
-      try {
-        const admin = JSON.parse(savedAdmin);
-        console.log('🔍 [ADMIN] Admin parsé:', admin);
-        setAdminData(admin);
+    // Seul le serveur décide : cookie de session + isAdmin lu en base
+    getCurrentUser().then(user => {
+      if (user?.isAdmin) {
+        setAdminData(user);
         setIsLoggedIn(true);
-        console.log('✅ [ADMIN] Session admin restaurée avec succès');
-        setIsInitializing(false);
-        return;
-      } catch (error) {
-        console.error('❌ [ADMIN] Erreur lors du chargement de la session admin:', error);
-        localStorage.removeItem('adminSession');
       }
-    }
-    
-    // 2. Vérifier si l'utilisateur connecté dans l'espace personnel est admin
-    const savedUser = localStorage.getItem('user');
-    console.log('🔍 [ADMIN] Session utilisateur trouvée:', savedUser ? 'OUI' : 'NON');
-    
-    if (savedUser) {
-      try {
-        const user = JSON.parse(savedUser);
-        console.log('🔍 [ADMIN] Utilisateur parsé:', user);
-        
-        // Vérifier si cet utilisateur est admin
-        if (user.isAdmin) {
-          console.log('✅ [ADMIN] Utilisateur connecté est admin, connexion automatique');
-          setAdminData(user);
-          setIsLoggedIn(true);
-          // Sauvegarder en tant qu'admin aussi
-          localStorage.setItem('adminSession', JSON.stringify(user));
-        } else {
-          console.log('ℹ️ [ADMIN] Utilisateur connecté n\'est pas admin');
-        }
-      } catch (error) {
-        console.error('❌ [ADMIN] Erreur lors du chargement de la session utilisateur:', error);
-        localStorage.removeItem('userSession');
-      }
-    } else {
-      console.log('ℹ️ [ADMIN] Aucune session utilisateur trouvée');
-    }
-    
-    setIsInitializing(false);
-    console.log('🔍 [ADMIN] Initialisation terminée, isLoggedIn:', isLoggedIn);
-  }, [isLoggedIn]);
+      setIsInitializing(false);
+    });
+  }, []);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -115,27 +69,22 @@ export default function AdminPage() {
 
 
   const handleLogin = async (username: string, password: string) => {
-    console.log('🔍 Tentative de connexion avec:', { username, password });
     setIsLoading(true);
     setError('');
-    
+
     try {
-      const result = await authenticateAdmin(username, password);
-      console.log('🔍 Résultat de l\'authentification:', result);
-      
-      if (result.success && result.admin) {
-        console.log('✅ Connexion réussie !');
+      const result = await authenticateUser(username, password);
+
+      if (result.success && result.user?.isAdmin) {
         setIsLoggedIn(true);
-        setAdminData(result.admin);
-        // Sauvegarder la session
-        localStorage.setItem('adminSession', JSON.stringify(result.admin));
-        setError('');
+        setAdminData(result.user);
+      } else if (result.success) {
+        await logoutUser();
+        setError('Accès administrateur refusé');
       } else {
-        console.log('❌ Échec de connexion:', result.error);
         setError(result.error || 'Nom d\'utilisateur ou mot de passe incorrect');
       }
     } catch (error) {
-      console.error('🔍 Erreur lors de la connexion:', error);
       setError(`Erreur lors de la connexion: ${error}`);
     } finally {
       setIsLoading(false);
@@ -349,10 +298,11 @@ export default function AdminPage() {
                 ← Retour
               </Link>
               <button
-                onClick={() => {
+                onClick={async () => {
+                  await logoutUser();
+                  localStorage.removeItem('user');
                   setIsLoggedIn(false);
                   setAdminData(null);
-                  localStorage.removeItem('adminSession');
                 }}
                 className="inline-block bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white px-4 py-2 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
               >

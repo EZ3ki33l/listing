@@ -26,7 +26,7 @@ export default function UserNotifications({ userId }: UserNotificationsProps) {
 
   const loadNotifications = useCallback(async () => {
     try {
-      const result = await getUserNotifications(userId);
+      const result = await getUserNotifications();
       if (result.success && result.notifications) {
         setNotifications(result.notifications);
       }

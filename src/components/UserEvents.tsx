@@ -78,7 +78,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
 
   const loadEvents = useCallback(async () => {
     try {
-      const result = await getUserEvents(userId);
+      const result = await getUserEvents();
       if (result.success && result.events) {
         setEvents(result.events);
       } else {
@@ -138,8 +138,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
         eventType: createEventData.eventType,
         targetDate: createEventData.hasTargetDate && createEventData.targetDate ? new Date(createEventData.targetDate) : undefined,
         hasTargetDate: createEventData.hasTargetDate,
-        isPrivate: createEventData.isPrivate,
-        ownerId: userId
+        isPrivate: createEventData.isPrivate
       };
 
       const result = await createEvent(eventData);
@@ -219,7 +218,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
 
   const handleHideEvent = async (eventId: string) => {
     try {
-      const result = await hideEvent(eventId, userId);
+      const result = await hideEvent(eventId);
       if (result.success) {
         setMessage('✅ Événement masqué avec succès !');
         await loadEvents();
@@ -234,7 +233,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
 
   const handleReactivateEvent = async (eventId: string) => {
     try {
-      const result = await reactivateEvent(eventId, userId);
+      const result = await reactivateEvent(eventId);
       if (result.success) {
         setMessage('✅ Événement réactivé avec succès !');
         await loadEvents();
