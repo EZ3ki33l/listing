@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { connection } from "next/server";
 import { FeedbackProvider } from "@/components/Feedback";
 
 const geistSans = Geist({
@@ -18,11 +19,13 @@ export const metadata: Metadata = {
   description: "Gérez vos listes d'achats facilement",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Rendu dynamique : le nonce CSP est propre à chaque requête
+  await connection();
   return (
     <html lang="fr-FR">
       <body
