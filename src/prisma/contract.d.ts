@@ -23,7 +23,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'8444290e434e68bde4b5d9a490022aac06cb4481173dc26cc9cc9a6418961ed0'>;
+  StorageHashBase<'a5c82bedb0c1594f22c264c764b78146c932d5e6babb9a1408e715eb0557da7d'>;
 export type ExecutionHash =
   ExecutionHashBase<'9bcbd46ab04c8c211094bb96c9b5a60ccc196c2856d0a00784e64435be080506'>;
 export type ProfileHash =
@@ -315,6 +315,7 @@ export namespace Models {
     createdAt: FieldOutputTypes['public']['Event']['createdAt'];
     eventType: FieldOutputTypes['public']['Event']['eventType'];
     hasTargetDate: FieldOutputTypes['public']['Event']['hasTargetDate'];
+    hidePurchasesFromOwner: FieldOutputTypes['public']['Event']['hidePurchasesFromOwner'];
     id: FieldOutputTypes['public']['Event']['id'];
     isActive: FieldOutputTypes['public']['Event']['isActive'];
     isHidden: FieldOutputTypes['public']['Event']['isHidden'];
@@ -502,6 +503,16 @@ type ContractBase = Omit<
                   readonly many: false;
                 };
                 readonly hasTargetDate: {
+                  readonly dataType: 'pg/bool';
+                  readonly codecId: 'pg/bool@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/bool@1', true>;
+                  };
+                  readonly many: false;
+                };
+                readonly hidePurchasesFromOwner: {
                   readonly dataType: 'pg/bool';
                   readonly codecId: 'pg/bool@1';
                   readonly nullable: false;
@@ -1140,6 +1151,10 @@ type ContractBase = Omit<
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
               };
+              readonly hidePurchasesFromOwner: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/bool@1' };
+              };
               readonly id: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -1221,6 +1236,7 @@ type ContractBase = Omit<
                 readonly createdAt: { readonly column: 'createdAt' };
                 readonly eventType: { readonly column: 'eventType' };
                 readonly hasTargetDate: { readonly column: 'hasTargetDate' };
+                readonly hidePurchasesFromOwner: { readonly column: 'hidePurchasesFromOwner' };
                 readonly id: { readonly column: 'id' };
                 readonly isActive: { readonly column: 'isActive' };
                 readonly isHidden: { readonly column: 'isHidden' };

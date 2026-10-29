@@ -33,6 +33,7 @@ model Event {
   isPrivate   Boolean  @default(false) // Indique si l'événement est privé (nécessite mot de passe)
   isActive    Boolean  @default(true)
   isHidden    Boolean  @default(false) // Indique si l'événement est masqué (invisible sur la page d'accueil)
+  hidePurchasesFromOwner Boolean @default(true) // Cache au propriétaire qui a acheté quoi (garde la surprise)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   

@@ -9,6 +9,7 @@ import { getSessionUser } from './session';
 import { isLimited, recordHit, clearHits, rateKey, getClientIp } from './rateLimit';
 import { shouldAutoHide, reactivationDate } from './recurring';
 import { parseTimestamp, toDates } from './dates';
+import { purchasesHidden, maskItems } from './purchases';
 import { validateEventInput, validateItemInput, validateCategoryInput } from './validation';
 
 // Types
@@ -18,6 +19,7 @@ export interface CreateEventData {
   targetDate?: Date;
   hasTargetDate?: boolean;
   isPrivate?: boolean;
+  hidePurchasesFromOwner?: boolean;
 }
 
 export interface CreateShoppingItemData {
@@ -41,11 +43,11 @@ const FORBIDDEN = { success: false, error: 'Accès refusé' } as const;
 
 // Droits de l'utilisateur sur un événement : null s'il n'y a aucun accès
 async function eventAccess(eventId: string, userId: string) {
-  const event = await db.orm.public.Event.where({ id: eventId }).select('ownerId').first();
+  const event = await db.orm.public.Event.where({ id: eventId }).select('ownerId', 'hidePurchasesFromOwner').first();
   if (!event) return null;
-  if (event.ownerId === userId) return { isOwner: true, canEdit: true };
+  if (event.ownerId === userId) return { isOwner: true, canEdit: true, purchasesHidden: purchasesHidden(event, userId) };
   const share = await db.orm.public.EventShare.where({ eventId, userId }).first();
-  return share ? { isOwner: false, canEdit: share.canEdit } : null;
+  return share ? { isOwner: false, canEdit: share.canEdit, purchasesHidden: false } : null;
 }
 
 // Neon Auth identifie par e-mail ; l'application identifie par pseudo (e-mail optionnel)
@@ -194,12 +196,15 @@ export async function getUserEvents() {
     // Séparer les événements personnels et partagés
     const ownedEvents = owned.map(event => ({
       ...event,
+      items: purchasesHidden(event, me.id) ? maskItems(event.items) : event.items,
+      purchasesHidden: purchasesHidden(event, me.id),
       isOwned: true,
       canEdit: true
     }));
 
     const sharedEvents = shares.flatMap(share => share.event ? [{
       ...share.event,
+      purchasesHidden: false,
       isOwned: false,
       canEdit: share.canEdit,
       sharedBy: share.event.owner?.username
@@ -277,6 +282,7 @@ export async function createEvent(data: CreateEventData) {
       targetDate: data.hasTargetDate && data.targetDate ? data.targetDate.toISOString() : null,
       hasTargetDate: data.hasTargetDate ?? true,
       isPrivate: data.isPrivate ?? false,
+      hidePurchasesFromOwner: data.hidePurchasesFromOwner ?? true,
       ownerId: me.id,
     });
 
@@ -294,6 +300,7 @@ export async function updateEvent(eventId: string, data: {
   targetDate: Date | null;
   hasTargetDate: boolean;
   isPrivate: boolean;
+  hidePurchasesFromOwner?: boolean; // absent : réglage inchangé
 }) {
   try {
     const invalid = validateEventInput(data);
@@ -307,6 +314,7 @@ export async function updateEvent(eventId: string, data: {
       targetDate: data.hasTargetDate && data.targetDate ? data.targetDate.toISOString() : null,
       hasTargetDate: data.hasTargetDate,
       isPrivate: data.isPrivate,
+      ...(data.hidePurchasesFromOwner !== undefined && { hidePurchasesFromOwner: data.hidePurchasesFromOwner }),
     });
     if (count === 0) return FORBIDDEN;
 
@@ -430,8 +438,11 @@ export async function getEvent(eventId: string) {
     const canEdit = isOwner || (event.shares.length > 0 && event.shares[0].canEdit);
 
     // Ajouter les informations de permission à l'événement
+    const hidden = purchasesHidden(event, userId);
     const eventWithPermissions = {
       ...event,
+      items: hidden ? maskItems(event.items) : event.items,
+      purchasesHidden: hidden,
       owner: event.owner!, // clé étrangère obligatoire
       isOwned: isOwner,
       canEdit: canEdit
@@ -488,7 +499,9 @@ export async function updateItemStatus(data: UpdateItemStatusData) {
     if (!me) return NO_AUTH;
 
     const item = await db.orm.public.ShoppingItem.where({ id: data.itemId }).select('eventId', 'purchasedBy').first();
-    if (!item || !(await eventAccess(item.eventId, me.id))) return FORBIDDEN;
+    const access = item && (await eventAccess(item.eventId, me.id));
+    if (!item || !access) return FORBIDDEN;
+    if (access.purchasesHidden) return { success: false, error: 'Vous ne pouvez pas marquer vos propres articles comme achetés' };
 
     if (data.isPurchased) {
       // Atomique : si deux personnes cliquent en même temps, une seule passe
@@ -664,7 +677,10 @@ export async function getAllActiveEvents() {
       )
       .all();
 
-    return { success: true, events: toDates(events.map(e => ({ ...e, owner: e.owner! }))) }; // clé étrangère obligatoire
+    return { success: true, events: toDates(events.map(e => {
+      const hidden = purchasesHidden(e, userId);
+      return { ...e, items: hidden ? maskItems(e.items) : e.items, purchasesHidden: hidden, owner: e.owner! }; // clé étrangère obligatoire
+    })) };
   } catch (error) {
     console.error('Erreur lors de la récupération des événements actifs:', error);
     return { success: false, error: 'Erreur lors de la récupération des événements' };

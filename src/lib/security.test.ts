@@ -104,6 +104,70 @@ describe.skipIf(!TEST_DB)('autorisations et achats (base réelle)', () => {
     expect(results.filter((r) => r.success)).toHaveLength(1);
   });
 
+  it('achats masqués au propriétaire sur les trois lectures, réglage par liste', async () => {
+    const evId = (await db.orm.public.Event.create({ name: `Surprise-${tag}`, eventType: 'autre', ownerId: alice.id })).id;
+    await db.orm.public.EventShare.create({ eventId: evId, userId: bob.id, canEdit: false });
+    await db.orm.public.EventShare.create({ eventId: evId, userId: carol.id, canEdit: true });
+    const item = await db.orm.public.ShoppingItem.create({ name: 'Cadeau', eventId: evId });
+    loginAs(bob);
+    expect((await actions.updateItemStatus({ itemId: item.id, isPurchased: true })).success).toBe(true);
+
+    type Ev = { id: string; purchasesHidden: boolean; items: { id: string; createdAt: Date; updatedAt: Date; purchasedAt: Date | null }[] };
+    const getOne = async () => ((await actions.getEvent(evId)) as unknown as { event: Ev }).event;
+    // Les trois lectures, vues par un utilisateur : l'article de l'événement de test
+    const reads = async (u: Row) => {
+      loginAs(u);
+      const one = await getOne();
+      const mine = ((await actions.getUserEvents()) as unknown as { events: Ev[] }).events.find((e) => e.id === evId)!;
+      const all = ((await actions.getAllActiveEvents()) as unknown as { events: Ev[] }).events.find((e) => e.id === evId)!;
+      return [one, mine, all].map((e) => ({ hidden: e.purchasesHidden, item: e.items.find((i) => i.id === item.id)! }));
+    };
+    for (const { hidden, item: i } of await reads(alice)) {
+      expect(hidden).toBe(true);
+      expect(i).toMatchObject({ isPurchased: false, purchasedBy: null, purchasedAt: null });
+      expect(i.updatedAt).toEqual(i.createdAt);
+    }
+    for (const u of [bob, carol]) {
+      for (const { hidden, item: i } of await reads(u)) {
+        expect(hidden).toBe(false);
+        expect(i).toMatchObject({ isPurchased: true, purchasedBy: bob.username });
+        expect(i.purchasedAt).toBeTruthy();
+      }
+    }
+
+    // Le propriétaire ne peut ni acheter ni annuler tant que le masquage est actif
+    loginAs(alice);
+    const refus = { success: false, error: 'Vous ne pouvez pas marquer vos propres articles comme achetés' };
+    const free = await db.orm.public.ShoppingItem.create({ name: 'Libre', eventId: evId });
+    expect(await actions.updateItemStatus({ itemId: free.id, isPurchased: true })).toEqual(refus);
+    expect(await actions.updateItemStatus({ itemId: item.id, isPurchased: false })).toEqual(refus);
+    expect((await itemRow(free.id))?.isPurchased).toBe(false);
+    expect((await itemRow(item.id))?.isPurchased).toBe(true);
+
+    // Une mise à jour sans le champ ne change pas le réglage
+    const data = { name: `Surprise-${tag}`, eventType: 'autre', targetDate: null, hasTargetDate: false, isPrivate: false };
+    expect((await actions.updateEvent(evId, data)).success).toBe(true);
+    expect((await getOne()).purchasesHidden).toBe(true);
+
+    // Masquage désactivé : le propriétaire voit les achats et peut acheter
+    expect((await actions.updateEvent(evId, { ...data, hidePurchasesFromOwner: false })).success).toBe(true);
+    for (const { hidden, item: i } of await reads(alice)) {
+      expect(hidden).toBe(false);
+      expect(i).toMatchObject({ isPurchased: true, purchasedBy: bob.username });
+    }
+    loginAs(alice);
+    expect((await actions.updateItemStatus({ itemId: free.id, isPurchased: true })).success).toBe(true);
+  });
+
+  it('createEvent : masquage actif par défaut, désactivable', async () => {
+    loginAs(alice);
+    await actions.createEvent({ name: `Def-${tag}`, eventType: 'autre' });
+    await actions.createEvent({ name: `Off-${tag}`, eventType: 'autre', hidePurchasesFromOwner: false });
+    const row = (name: string) => db.orm.public.Event.where({ ownerId: alice.id, name }).first();
+    expect((await row(`Def-${tag}`))?.hidePurchasesFromOwner).toBe(true);
+    expect((await row(`Off-${tag}`))?.hidePurchasesFromOwner).toBe(false);
+  });
+
   it('les dates font l\'aller-retour en UTC', async () => {
     loginAs(alice);
     const targetDate = new Date('2027-09-28T00:00:00.000Z');

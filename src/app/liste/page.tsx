@@ -18,6 +18,7 @@ interface Event {
   hasTargetDate: boolean;
   isPrivate: boolean;
   isActive: boolean;
+  purchasesHidden?: boolean; // propriétaire dont les achats sont cachés : ni bouton d'achat ni « Acheté par »
   isOwned?: boolean;
   canEdit?: boolean;
   owner: {
@@ -633,12 +634,14 @@ function ListePageContent() {
                     {/* Boutons d'action */}
                     <div className="flex gap-2 pt-2 mt-auto">
                       {/* Bouton Acheté */}
-                      <button
-                        onClick={() => handleToggleItem(item.id, true)}
-                        className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        ✅ Acheté
-                      </button>
+                      {!event.purchasesHidden && (
+                        <button
+                          onClick={() => handleToggleItem(item.id, true)}
+                          className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          ✅ Acheté
+                        </button>
+                      )}
                       
                       {/* Bouton Acheter */}
                       {item.purchaseUrl && (
@@ -715,9 +718,11 @@ function ListePageContent() {
                       <p className="text-sm text-gray-600 line-through">{item.description}</p>
                     )}
                     
-                    <p className="text-sm text-green-600">
-                      ✅ Acheté par {item.purchasedBy} le {item.purchasedAt ? new Date(item.purchasedAt).toLocaleDateString('fr-FR') : 'récemment'}
-                    </p>
+                    {!event.purchasesHidden && (
+                      <p className="text-sm text-green-600">
+                        ✅ Acheté par {item.purchasedBy} le {item.purchasedAt ? new Date(item.purchasedAt).toLocaleDateString('fr-FR') : 'récemment'}
+                      </p>
+                    )}
                     
                     {/* Spacer pour pousser les boutons en bas */}
                     <div className="flex-grow"></div>
@@ -740,12 +745,14 @@ function ListePageContent() {
                       )}
                       
                       {/* Bouton Annuler achat */}
-                      <button
-                        onClick={() => handleToggleItem(item.id, false)}
-                        className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        🔄 Annuler
-                      </button>
+                      {!event.purchasesHidden && (
+                        <button
+                          onClick={() => handleToggleItem(item.id, false)}
+                          className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          🔄 Annuler
+                        </button>
+                      )}
                       
                       {/* Bouton Supprimer */}
                       {canDeleteItems() && (

@@ -147,6 +147,13 @@
                   "kind": "scalar"
                 }
               },
+              "hidePurchasesFromOwner": {
+                "nullable": false,
+                "type": {
+                  "codecId": "pg/bool@1",
+                  "kind": "scalar"
+                }
+              },
               "id": {
                 "nullable": false,
                 "type": {
@@ -268,6 +275,9 @@
                 },
                 "hasTargetDate": {
                   "column": "hasTargetDate"
+                },
+                "hidePurchasesFromOwner": {
+                  "column": "hidePurchasesFromOwner"
                 },
                 "id": {
                   "column": "id"
@@ -1069,6 +1079,15 @@
                   },
                   "nullable": false
                 },
+                "hidePurchasesFromOwner": {
+                  "codecId": "pg/bool@1",
+                  "dataType": "pg/bool",
+                  "default": {
+                    "kind": "literal",
+                    "value": true
+                  },
+                  "nullable": false
+                },
                 "id": {
                   "codecId": "pg/text@1",
                   "dataType": "pg/text",
@@ -1670,7 +1689,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "8444290e434e68bde4b5d9a490022aac06cb4481173dc26cc9cc9a6418961ed0"
+    "storageHash": "a5c82bedb0c1594f22c264c764b78146c932d5e6babb9a1408e715eb0557da7d"
   },
   "execution": {
     "executionHash": "9bcbd46ab04c8c211094bb96c9b5a60ccc196c2856d0a00784e64435be080506",

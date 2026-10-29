@@ -19,6 +19,7 @@ interface Event {
   targetDate: Date | null;
   hasTargetDate: boolean;
   isPrivate: boolean;
+  hidePurchasesFromOwner: boolean;
   isActive: boolean;
   isHidden: boolean;
   isOwned: boolean;
@@ -66,7 +67,8 @@ export default function UserEvents({ userId }: UserEventsProps) {
     eventType: 'anniversaire',
     hasTargetDate: true,
     targetDate: '',
-    isPrivate: false
+    isPrivate: false,
+    hidePurchasesFromOwner: true
   });
   const [showEditForm, setShowEditForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
@@ -75,7 +77,8 @@ export default function UserEvents({ userId }: UserEventsProps) {
     eventType: 'anniversaire',
     hasTargetDate: true,
     targetDate: '',
-    isPrivate: false
+    isPrivate: false,
+    hidePurchasesFromOwner: true
   });
 
   const loadEvents = useCallback(async () => {
@@ -140,7 +143,8 @@ export default function UserEvents({ userId }: UserEventsProps) {
         eventType: createEventData.eventType,
         targetDate: createEventData.hasTargetDate && createEventData.targetDate ? new Date(createEventData.targetDate) : undefined,
         hasTargetDate: createEventData.hasTargetDate,
-        isPrivate: createEventData.isPrivate
+        isPrivate: createEventData.isPrivate,
+        hidePurchasesFromOwner: createEventData.hidePurchasesFromOwner
       };
 
       const result = await createEvent(eventData);
@@ -152,7 +156,8 @@ export default function UserEvents({ userId }: UserEventsProps) {
           eventType: 'anniversaire',
           hasTargetDate: true,
           targetDate: '',
-          isPrivate: false
+          isPrivate: false,
+          hidePurchasesFromOwner: true
         });
         // Recharger les événements
         await loadEvents();
@@ -172,7 +177,8 @@ export default function UserEvents({ userId }: UserEventsProps) {
       eventType: event.eventType,
       hasTargetDate: event.hasTargetDate,
       targetDate: event.targetDate ? new Date(event.targetDate).toISOString().split('T')[0] : '',
-      isPrivate: event.isPrivate
+      isPrivate: event.isPrivate,
+      hidePurchasesFromOwner: event.hidePurchasesFromOwner
     });
     setShowEditForm(true);
   };
@@ -190,7 +196,8 @@ export default function UserEvents({ userId }: UserEventsProps) {
         eventType: editEventData.eventType,
         targetDate: editEventData.hasTargetDate && editEventData.targetDate ? new Date(editEventData.targetDate) : null,
         hasTargetDate: editEventData.hasTargetDate,
-        isPrivate: editEventData.isPrivate
+        isPrivate: editEventData.isPrivate,
+        hidePurchasesFromOwner: editEventData.hidePurchasesFromOwner
       });
 
       if (result.success) {
@@ -215,7 +222,8 @@ export default function UserEvents({ userId }: UserEventsProps) {
       eventType: 'anniversaire',
       hasTargetDate: true,
       targetDate: '',
-      isPrivate: false
+      isPrivate: false,
+      hidePurchasesFromOwner: true
     });
   };
 
@@ -609,6 +617,19 @@ export default function UserEvents({ userId }: UserEventsProps) {
                   </label>
                 </div>
                 
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="createHidePurchases"
+                    checked={createEventData.hidePurchasesFromOwner}
+                    onChange={(e) => setCreateEventData(prev => ({ ...prev, hidePurchasesFromOwner: e.target.checked }))}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <label htmlFor="createHidePurchases" className="text-sm text-gray-700">
+                    Cacher les achats au propriétaire (garde la surprise)
+                  </label>
+                </div>
+                
                 <div className="flex gap-3">
                   <button
                     type="submit"
@@ -626,7 +647,8 @@ export default function UserEvents({ userId }: UserEventsProps) {
                         eventType: 'anniversaire',
                         hasTargetDate: true,
                         targetDate: '',
-                        isPrivate: false
+                        isPrivate: false,
+                        hidePurchasesFromOwner: true
                       });
                     }}
                     className="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-all duration-300"
@@ -719,6 +741,19 @@ export default function UserEvents({ userId }: UserEventsProps) {
                   />
                   <label htmlFor="editIsPrivate" className="text-sm text-gray-700">
                     Événement privé (nécessite mot de passe)
+                  </label>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="editHidePurchases"
+                    checked={editEventData.hidePurchasesFromOwner}
+                    onChange={(e) => setEditEventData(prev => ({ ...prev, hidePurchasesFromOwner: e.target.checked }))}
+                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                  />
+                  <label htmlFor="editHidePurchases" className="text-sm text-gray-700">
+                    Cacher les achats au propriétaire (garde la surprise)
                   </label>
                 </div>
                 
