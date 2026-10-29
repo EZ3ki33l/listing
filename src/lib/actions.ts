@@ -3,6 +3,8 @@
 import { and, or } from '@prisma/orm-postgres/orm-client';
 import { db } from './db';
 import { revalidatePath } from 'next/cache';
+import { headers } from 'next/headers';
+import { randomBytes } from 'crypto';
 import bcrypt from 'bcryptjs';
 import { auth } from './auth/server';
 import { getSessionUser } from './session';
@@ -10,7 +12,8 @@ import { isLimited, recordHit, clearHits, rateKey, getClientIp } from './rateLim
 import { shouldAutoHide, reactivationDate } from './recurring';
 import { parseTimestamp, toDates } from './dates';
 import { purchasesHidden, maskItems } from './purchases';
-import { validateEventInput, validateItemInput, validateCategoryInput } from './validation';
+import { validateEventInput, validateItemInput, validateCategoryInput, validatePassword, validateEmail, normEmail } from './validation';
+import { signInEmail } from './emailAuth';
 
 // Types
 export interface CreateEventData {
@@ -52,21 +55,29 @@ async function eventAccess(eventId: string, userId: string) {
   return share ? { isOwner: false, canEdit: share.canEdit, purchasesHidden: false } : null;
 }
 
-// Neon Auth identifie par e-mail ; l'application identifie par pseudo (e-mail optionnel)
-// -> sans e-mail réel, on en dérive un du pseudo (pas de réinitialisation de mot de passe par mail possible)
-const authEmail = (username: string, email?: string | null) =>
-  email || `${Buffer.from(username.toLowerCase()).toString('hex')}@listing.invalid`;
+const TAKEN = { success: false, error: 'Nom d\'utilisateur ou email déjà utilisé' } as const;
+const EMAIL_MISMATCH = 'Les deux adresses email ne correspondent pas';
+
+// Neon ne supprime pas les comptes (/delete-user en 404) : une adresse laissée par un essai interrompu se reprend avec le même mot de passe
+async function neonSignUp(email: string, name: string, password: string): Promise<string | null> {
+  const { data, error } = await auth.signUp.email({ email, name, password });
+  if (data) return data.user.id;
+  const { data: again } = await auth.signIn.email({ email, password });
+  if (!again) console.error('Inscription Neon Auth refusée:', error?.code ?? error?.message);
+  return again?.user.id ?? null;
+}
 
 // Actions pour l'authentification des utilisateurs
-export async function registerUser(username: string, password: string, email?: string) {
+// shortcut: l'adresse n'est pas confirmée par un code (Neon n'envoie pas les codes tant que « Verify at sign-up » est coupé) ; l'ajouter quand le réglage est disponible
+export async function registerUser(username: string, password: string, email: string, emailConfirm: string) {
   try {
-    username = username.trim();
+    username = typeof username === 'string' ? username.trim() : '';
     if (!username || username.length > 32) {
       return { success: false, error: 'Nom d\'utilisateur requis (32 caractères maximum)' };
     }
-    if (password.length < 8) {
-      return { success: false, error: 'Le mot de passe doit contenir au moins 8 caractères' };
-    }
+    const invalid = validatePassword(password) ?? validateEmail(normEmail(email)) ?? (normEmail(email) !== normEmail(emailConfirm) ? EMAIL_MISMATCH : null);
+    if (invalid) return { success: false, error: invalid };
+    email = normEmail(email);
 
     // Chaque tentative compte (anti-spam d'inscriptions)
     const ip = await getClientIp();
@@ -78,25 +89,23 @@ export async function registerUser(username: string, password: string, email?: s
     await recordHit(regKey);
     if (regIpKey) await recordHit(regIpKey);
 
-    // Vérifier si l'utilisateur existe déjà
     const existingUser = await db.orm.public.User
-      .where((u) => (email ? or(u.username.eq(username), u.email.eq(email)) : u.username.eq(username)))
+      .where((u) => or(u.username.eq(username), u.email.eq(email), u.authEmail.eq(email)))
       .first();
+    if (existingUser) return TAKEN;
 
-    if (existingUser) {
-      return { success: false, error: 'Nom d\'utilisateur ou email déjà utilisé' };
+    // Ligne de l'app d'abord : elle se retire si l'inscription Neon échoue, alors qu'un compte Neon orphelin ne se supprime pas
+    const user = await db.orm.public.User.create({ username, email, authEmail: email });
+    const authId = await neonSignUp(email, username, password).catch((e) => (console.error('Inscription Neon Auth impossible:', e), null));
+    if (!authId) {
+      await db.orm.public.User.where({ id: user.id }).delete();
+      return TAKEN;
     }
-
-    const { data, error } = await auth.signUp.email({ email: authEmail(username, email), name: username, password });
-    if (error || !data) {
-      return { success: false, error: error?.message || 'Erreur lors de l\'inscription' };
-    }
-
-    let user;
     try {
-      user = await db.orm.public.User.create({ username, email: email ?? null, authId: data.user.id });
+      await db.orm.public.User.where({ id: user.id }).update({ authId });
     } catch (dbError) {
-      await auth.deleteUser(); // la session ouverte par l'inscription sert à supprimer le compte orphelin
+      // compte Neon créé mais non relié : une nouvelle inscription avec le même mot de passe le reprendra (neonSignUp)
+      await db.orm.public.User.where({ id: user.id }).delete().catch(() => {});
       throw dbError;
     }
     await auth.signOut(); // l'interface renvoie vers l'écran de connexion
@@ -123,7 +132,7 @@ export async function authenticateUser(username: string, password: string) {
     await recordHit(userKey); // compté avant le travail lent (sinon des requêtes parallèles passent toutes le contrôle) ; effacé en cas de succès
 
     const user = await db.orm.public.User.where({ username }).first();
-    const email = user && authEmail(user.username, user.email);
+    const email = user && signInEmail(user);
     let ok = false;
 
     if (user && email && user.authId) {
@@ -170,7 +179,112 @@ export async function logoutUser() {
 
 // Utilisateur de la session, ou null (sert à l'interface pour savoir si la session serveur est valide)
 export async function getCurrentUser() {
-  return getSessionUser();
+  const me = await getSessionUser();
+  return me && { id: me.id, username: me.username, email: me.email, isAdmin: me.isAdmin };
+}
+
+const EMAIL_TAKEN = { success: false, error: 'Adresse email déjà utilisée' } as const;
+const TOO_MANY = { success: false, error: 'Trop de tentatives, réessayez dans 1 heure' } as const;
+
+// Chaque essai compte (pseudo/adresse/utilisateur, et IP si connue) ; true si la limite est atteinte
+async function hitLimit(name: string, id: string, max: number): Promise<boolean> {
+  const ip = await getClientIp();
+  const keys = [[rateKey(name, id), max], ...(ip ? [[rateKey(`${name}-ip`, ip), 10] as const] : [])] as const;
+  for (const [k, m] of keys) if (await isLimited(k, m, HOUR)) return true;
+  for (const [k] of keys) await recordHit(k);
+  return false;
+}
+
+// Ancien compte (adresse .invalid) : Neon ne permet pas de changer l'adresse d'un compte, on crée donc un nouveau compte
+// Neon à la vraie adresse avec le même mot de passe, on y rattache l'utilisateur, puis on neutralise l'ancien.
+// Ordre choisi pour ne jamais laisser l'utilisateur sans compte utilisable : l'ancien n'est touché qu'une fois le nouveau relié.
+export async function attachEmail(email: string, emailConfirm: string, currentPassword: string) {
+  try {
+    const me = await getSessionUser();
+    if (!me) return NO_AUTH;
+    const invalid = validateEmail(normEmail(email)) ?? (normEmail(email) !== normEmail(emailConfirm) ? EMAIL_MISMATCH : null);
+    if (invalid) return { success: false, error: invalid };
+    if (typeof currentPassword !== 'string' || !currentPassword) return { success: false, error: 'Mot de passe incorrect' };
+    email = normEmail(email);
+
+    if (await hitLimit('attach', me.id, 5)) return TOO_MANY;
+    const taken = await db.orm.public.User.where((u) => or(u.email.eq(email), u.authEmail.eq(email))).first();
+    if (taken) return EMAIL_TAKEN;
+
+    const oldEmail = signInEmail(me);
+    const { data: current } = await auth.signIn.email({ email: oldEmail, password: currentPassword });
+    if (!current || current.user.id !== me.authId) return { success: false, error: 'Mot de passe incorrect' };
+
+    const newId = await neonSignUp(email, me.username, currentPassword);
+    if (!newId || newId === me.authId) return EMAIL_TAKEN;
+
+    try {
+      await db.orm.public.User.where({ id: me.id }).update({ authId: newId, authEmail: email, email });
+    } catch (dbError) {
+      console.error(`Ajout d'email : compte Neon ${newId} créé mais non relié à l'utilisateur ${me.id} ; ancien compte ${me.authId} intact`, dbError);
+      await auth.signIn.email({ email: oldEmail, password: currentPassword }); // l'inscription a posé le cookie du nouveau compte
+      return { success: false, error: 'Erreur lors de l\'ajout de l\'email' };
+    }
+
+    // Les appels du SDK partent avec le cookie reçu (session de l'ancien compte) : changePassword vise donc l'ancien compte
+    const { error: neutralizeError } = await auth.changePassword({
+      currentPassword, newPassword: randomBytes(32).toString('base64url'), revokeOtherSessions: true,
+    });
+    if (neutralizeError) {
+      // sans gravité : l'ancien compte n'est plus relié à aucun utilisateur de l'app
+      console.error(`Ajout d'email : ancien compte Neon ${me.authId} non neutralisé (utilisateur ${me.id} relié à ${newId}):`, neutralizeError.code ?? neutralizeError.message);
+    }
+    // En dernier : le cookie de session final est celui du nouveau compte
+    const { data: fresh } = await auth.signIn.email({ email, password: currentPassword });
+    if (!fresh) console.error(`Ajout d'email : reconnexion au nouveau compte ${newId} impossible, l'utilisateur devra se reconnecter`);
+
+    return { success: true, email };
+  } catch (error) {
+    console.error('Erreur lors de l\'ajout de l\'email:', error);
+    return { success: false, error: 'Erreur lors de l\'ajout de l\'email' };
+  }
+}
+
+const RESET_SENT = { success: true, message: 'Si un compte existe, un email vient d\'être envoyé' } as const;
+
+// Même réponse que le compte existe ou non (pas d'oracle) ; seul un compte dont c'est l'adresse de connexion reçoit le lien
+export async function requestPasswordReset(email: string) {
+  try {
+    email = normEmail(email);
+    const invalid = validateEmail(email);
+    if (invalid) return { success: false as const, error: invalid };
+    if (await hitLimit('reset', email, 3)) return TOO_MANY;
+
+    const user = await db.orm.public.User.where((u) => or(u.authEmail.eq(email), u.email.eq(email))).first();
+    if (user && signInEmail(user) === email) {
+      // Neon n'accepte qu'une redirection vers l'origine de la requête (localhost) ou un domaine de confiance
+      const h = await headers();
+      const origin = h.get('origin') ?? `https://${h.get('host')}`;
+      const { error } = await auth.requestPasswordReset({ email, redirectTo: `${origin}/reset-password` });
+      if (error) console.error('Demande de réinitialisation refusée par Neon Auth:', error.code ?? error.message);
+    }
+    return RESET_SENT;
+  } catch (error) {
+    console.error('Erreur lors de la demande de réinitialisation:', error);
+    return RESET_SENT;
+  }
+}
+
+// shortcut: Neon ne révoque pas les autres sessions après réinitialisation ; seule celle de ce navigateur est fermée
+export async function resetPassword(token: string, newPassword: string) {
+  try {
+    const invalid = validatePassword(newPassword);
+    if (invalid) return { success: false, error: invalid };
+    const INVALID_LINK = { success: false, error: 'Lien invalide ou expiré, refaites une demande' };
+    if (typeof token !== 'string' || !token || token.length > 512) return INVALID_LINK;
+    const { error } = await auth.resetPassword({ token, newPassword });
+    if (error) return INVALID_LINK;
+    await auth.signOut();
+    return { success: true };
+  } catch (error) {
+    console.error('Erreur lors de la réinitialisation du mot de passe:', error);
+    return { success: false, error: 'Erreur lors de la réinitialisation du mot de passe' };
+  }
 }
 
 export async function getUserEvents() {

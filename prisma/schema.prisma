@@ -13,7 +13,8 @@ model User {
   username  String   @unique // Pseudo unique de l'utilisateur
   password  String?  // Ancien hash bcrypt, vidé après migration vers Neon Auth
   authId    String?  @unique // Id de l'utilisateur dans Neon Auth (neon_auth.user)
-  email     String?  @unique // Email optionnel
+  email     String?  @unique // Email de l'utilisateur (obligatoire à l'inscription, absent des anciens comptes)
+  authEmail String?  @unique // Adresse de connexion Neon Auth ; null = ancienne adresse dérivée du pseudo (voir emailAuth.ts)
   isAdmin   Boolean  @default(false) // Indique si l'utilisateur est administrateur
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

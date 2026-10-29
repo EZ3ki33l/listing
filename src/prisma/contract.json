@@ -841,6 +841,13 @@
           },
           "User": {
             "fields": {
+              "authEmail": {
+                "nullable": true,
+                "type": {
+                  "codecId": "pg/text@1",
+                  "kind": "scalar"
+                }
+              },
               "authId": {
                 "nullable": true,
                 "type": {
@@ -953,6 +960,9 @@
             },
             "storage": {
               "fields": {
+                "authEmail": {
+                  "column": "authEmail"
+                },
                 "authId": {
                   "column": "authId"
                 },
@@ -1597,6 +1607,11 @@
             },
             "User": {
               "columns": {
+                "authEmail": {
+                  "codecId": "pg/text@1",
+                  "dataType": "pg/text",
+                  "nullable": true
+                },
                 "authId": {
                   "codecId": "pg/text@1",
                   "dataType": "pg/text",
@@ -1656,6 +1671,13 @@
               "indexes": [
                 {
                   "columns": [
+                    "authEmail"
+                  ],
+                  "name": "User_authEmail_key",
+                  "unique": true
+                },
+                {
+                  "columns": [
                     "authId"
                   ],
                   "name": "User_authId_key",
@@ -1689,7 +1711,7 @@
         "kind": "postgres-schema"
       }
     },
-    "storageHash": "a5c82bedb0c1594f22c264c764b78146c932d5e6babb9a1408e715eb0557da7d"
+    "storageHash": "919362b6f296c6a87afb1556398ec8956a8472c900e713f569f2a2feccf27689"
   },
   "execution": {
     "executionHash": "9bcbd46ab04c8c211094bb96c9b5a60ccc196c2856d0a00784e64435be080506",

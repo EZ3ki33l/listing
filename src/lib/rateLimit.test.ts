@@ -16,6 +16,10 @@ describe('rateKey', () => {
     expect(rateKey('login', ' Alice ')).toBe(rateKey('login', 'alice'));
     expect(rateKey('login', ' Alice ')).toBe('login:alice');
   });
+
+  it('coupe chaque partie à 128 caractères', () => {
+    expect(rateKey('reset', 'a'.repeat(500), 'b')).toBe(`reset:${'a'.repeat(128)}:b`);
+  });
 });
 
 describe.skipIf(!TEST_DB)('limitation de débit (base réelle)', () => {
@@ -109,11 +113,12 @@ describe.skipIf(!TEST_DB)('limitation de débit (base réelle)', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {}); // le mock d'auth fait échouer l'inscription après le limiteur
     headers.mockResolvedValue(new Headers());
     const name = `Reg${tag}`;
+    const mail = `reg${tag}@exemple.fr`;
     keys.add(rateKey('register', name));
     for (let i = 0; i < 5; i++) {
-      expect(await actions.registerUser(name, 'motdepasse')).not.toMatchObject({ error: expect.stringContaining('Trop de tentatives') });
+      expect(await actions.registerUser(name, 'motdepasse', mail, mail)).not.toMatchObject({ error: expect.stringContaining('Trop de tentatives') });
     }
-    expect(await actions.registerUser(name, 'motdepasse')).toEqual({ success: false, error: 'Trop de tentatives, réessayez dans 1 heure' });
+    expect(await actions.registerUser(name, 'motdepasse', mail, mail)).toEqual({ success: false, error: 'Trop de tentatives, réessayez dans 1 heure' });
 
     const me = { id: `share-${tag}`, username: 'x', email: null, isAdmin: false };
     getSessionUser.mockResolvedValue(me);

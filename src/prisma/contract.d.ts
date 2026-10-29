@@ -23,7 +23,7 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'a5c82bedb0c1594f22c264c764b78146c932d5e6babb9a1408e715eb0557da7d'>;
+  StorageHashBase<'919362b6f296c6a87afb1556398ec8956a8472c900e713f569f2a2feccf27689'>;
 export type ExecutionHash =
   ExecutionHashBase<'9bcbd46ab04c8c211094bb96c9b5a60ccc196c2856d0a00784e64435be080506'>;
 export type ProfileHash =
@@ -386,6 +386,7 @@ export namespace Models {
     readonly [RelationKeys]?: 'item';
   };
   export type public_User = {
+    authEmail: FieldOutputTypes['public']['User']['authEmail'];
     authId: FieldOutputTypes['public']['User']['authId'];
     createdAt: FieldOutputTypes['public']['User']['createdAt'];
     email: FieldOutputTypes['public']['User']['email'];
@@ -965,6 +966,12 @@ type ContractBase = Omit<
             };
             readonly User: {
               columns: {
+                readonly authEmail: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
                 readonly authId: {
                   readonly dataType: 'pg/text';
                   readonly codecId: 'pg/text@1';
@@ -1024,6 +1031,11 @@ type ContractBase = Omit<
               primaryKey: { readonly columns: readonly ['id'] };
               uniques: readonly [];
               indexes: readonly [
+                {
+                  readonly name: 'User_authEmail_key';
+                  readonly columns: readonly ['authEmail'];
+                  readonly unique: true;
+                },
                 {
                   readonly name: 'User_authId_key';
                   readonly columns: readonly ['authId'];
@@ -1584,6 +1596,10 @@ type ContractBase = Omit<
           };
           readonly User: {
             readonly fields: {
+              readonly authEmail: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
               readonly authId: {
                 readonly nullable: true;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
@@ -1664,6 +1680,7 @@ type ContractBase = Omit<
               readonly table: 'User';
               readonly namespaceId: 'public';
               readonly fields: {
+                readonly authEmail: { readonly column: 'authEmail' };
                 readonly authId: { readonly column: 'authId' };
                 readonly createdAt: { readonly column: 'createdAt' };
                 readonly email: { readonly column: 'email' };

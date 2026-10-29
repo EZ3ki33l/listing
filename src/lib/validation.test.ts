@@ -44,6 +44,12 @@ describe('validateItemInput', () => {
     ['prix négatif', item({ price: -1 })],
     ['prix 1e12', item({ price: 1e12 })],
     ['lien d\'achat ftp', item({ purchaseUrl: 'ftp://a' })],
+    ['lien d\'achat http:foo', item({ purchaseUrl: 'http:foo' })],
+    ['lien d\'achat https:/x', item({ purchaseUrl: 'https:/x' })],
+    ['lien d\'achat avec identifiants', item({ purchaseUrl: 'https://u:p@shop.fr/x' })],
+    ['lien d\'achat de 2049 caractères', item({ purchaseUrl: 'https://a.fr/' + 'a'.repeat(2036) })],
+    ['lien d\'achat 0', item({ purchaseUrl: 0 })],
+    ['lien d\'achat false', item({ purchaseUrl: false })],
     ['photo javascript:', item({ photos: [photo('javascript:alert(1)')] })],
     ['photo data:', item({ photos: [photo('data:image/png;base64,AA')] })],
     ['photo http', item({ photos: [photo('http://a.fr/i.png')] })],
@@ -59,7 +65,7 @@ describe('validateItemInput', () => {
   it('accepte une URL de 2048 caractères et 10 photos', () => {
     const url = 'https://a.fr/' + 'a'.repeat(2035);
     expect(url).toHaveLength(2048);
-    expect(validateItemInput(item({ photos: Array.from({ length: 10 }, () => photo(url)) }))).toBeNull();
+    expect(validateItemInput(item({ purchaseUrl: url, photos: Array.from({ length: 10 }, () => photo(url)) }))).toBeNull();
   });
 });
 

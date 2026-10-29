@@ -31,9 +31,12 @@ export function validateItemInput(d: CreateShoppingItemData): string | null {
   if (d.name.length > 100) return 'Nom de l\'article trop long (100 caractères maximum)';
   if (d.description != null && !isString(d.description, 1000)) return 'Description trop longue (1000 caractères maximum)';
   if (d.price != null && !(typeof d.price === 'number' && Number.isFinite(d.price) && d.price >= 0 && d.price <= 1_000_000)) return 'Prix invalide';
-  if (d.purchaseUrl) {
-    const url = parseUrl(d.purchaseUrl);
-    if (!url || !/^https?:$/.test(url.protocol)) return 'Le lien d\'achat doit commencer par http:// ou https://';
+  if (d.purchaseUrl != null) {
+    // new URL accepte « http:foo » ou « https:/x » (et réécrit href) : le « // » est exigé sur la saisie brute
+    const url = isString(d.purchaseUrl, 2048) && /^https?:\/\//i.test(d.purchaseUrl) ? parseUrl(d.purchaseUrl) : null;
+    if (!url || url.username || url.password) {
+      return 'Le lien d\'achat doit commencer par http:// ou https://';
+    }
   }
   if (!Array.isArray(d.photos) || d.photos.length > 10) return 'Dix photos maximum par article';
   for (const p of d.photos) {
@@ -48,5 +51,19 @@ export function validateCategoryInput(d: { name: unknown; color?: unknown; icon?
   if (typeof d.name !== 'string' || !d.name.trim() || d.name.length > 50) return 'Nom de catégorie requis (50 caractères maximum)';
   if (d.color != null && !(typeof d.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(d.color))) return 'Couleur invalide (format #RRGGBB)';
   if (d.icon != null && !isString(d.icon, 8)) return 'Icône trop longue (8 caractères maximum)';
+  return null;
+}
+
+export function validatePassword(p: unknown): string | null {
+  return typeof p === 'string' && p.length >= 8 && p.length <= 128 ? null : 'Le mot de passe doit contenir entre 8 et 128 caractères';
+}
+
+// Adresse comparée et stockée en minuscules (Neon Auth fait de même)
+export const normEmail = (e: unknown) => (typeof e === 'string' ? e.trim().toLowerCase() : '');
+
+// .invalid refusé : c'est le domaine des adresses dérivées des anciens comptes, les prendre bloquerait leur migration
+export function validateEmail(e: unknown): string | null {
+  if (typeof e !== 'string' || e.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return 'Adresse email invalide';
+  if (/\.invalid$/i.test(e)) return 'Adresse email invalide';
   return null;
 }

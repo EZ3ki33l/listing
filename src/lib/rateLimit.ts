@@ -5,7 +5,8 @@ import { db } from './db';
 const HITS = () => db.orm.public.RateLimitHit;
 const iso = (msAgo: number) => new Date(Date.now() - msAgo).toISOString(); // mêmes ISO que le reste de l'app
 
-export const rateKey = (...parts: string[]) => parts.map((p) => p.trim().toLowerCase()).join(':');
+// Chaque partie est coupée à 128 caractères : une saisie énorme ne gonfle pas la table
+export const rateKey = (...parts: string[]) => parts.map((p) => p.trim().toLowerCase().slice(0, 128)).join(':');
 
 // Sans CLIENT_IP_HEADER (nom de l'en-tête posé par l'hébergeur), pas d'IP : la limite par IP est alors désactivée
 export async function getClientIp(): Promise<string | null> {
