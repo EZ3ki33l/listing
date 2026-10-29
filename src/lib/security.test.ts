@@ -71,6 +71,15 @@ describe.skipIf(!TEST_DB)('autorisations et achats (base réelle)', () => {
     expect((await actions.updateEvent(eventId, { ...data, name: 'Anniv' })).success).toBe(true);
   });
 
+  it('refuse une photo http:// et ne crée aucune ligne', async () => {
+    loginAs(alice);
+    const name = `Piège-${tag}`;
+    const res = await actions.createShoppingItem({ eventId, name, photos: [{ imageUrl: 'http://a.fr/i.png' }] });
+    expect(res.success).toBe(false);
+    expect(await db.orm.public.ShoppingItem.where({ eventId, name }).first()).toBeNull();
+    expect((await actions.createShoppingItem({ eventId, name, photos: [{ imageUrl: 'https://a.fr/i.png' }] })).success).toBe(true);
+  });
+
   it('achat : sans accès refusé, le vrai pseudo est enregistré, pas de 2e achat', async () => {
     const id = await newItem();
     loginAs(carol);

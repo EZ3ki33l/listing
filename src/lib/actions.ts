@@ -10,6 +10,7 @@ import { getSessionUser } from './session';
 import { isLimited, recordFailure, clearFailures } from './rateLimit';
 import { shouldAutoHide, reactivationDate } from './recurring';
 import { parseTimestamp, toDates } from './dates';
+import { validateEventInput, validateItemInput, validateCategoryInput } from './validation';
 
 // Types
 export interface CreateEventData {
@@ -251,9 +252,10 @@ export async function shareEvent(eventId: string, targetUsername: string, canEdi
 // Actions pour les événements
 export async function createEvent(data: CreateEventData) {
   try {
+    const invalid = validateEventInput(data);
+    if (invalid) return { success: false, error: invalid };
     const me = await getSessionUser();
     if (!me) return NO_AUTH;
-    if (!data.name?.trim()) return { success: false, error: 'Nom de l\'événement requis' };
 
     await db.orm.public.Event.create({
       name: data.name,
@@ -280,9 +282,10 @@ export async function updateEvent(eventId: string, data: {
   isPrivate: boolean;
 }) {
   try {
+    const invalid = validateEventInput(data);
+    if (invalid) return { success: false, error: invalid };
     const me = await getSessionUser();
     if (!me) return NO_AUTH;
-    if (!data.name?.trim()) return { success: false, error: 'Nom de l\'événement requis' };
 
     const count = await db.orm.public.Event.where({ id: eventId, ownerId: me.id }).updateAndCount({
       name: data.name,
@@ -430,19 +433,13 @@ export async function getEvent(eventId: string) {
 // Actions pour les articles
 export async function createShoppingItem(data: CreateShoppingItemData) {
   try {
+    const invalid = validateItemInput(data);
+    if (invalid) return { success: false, error: invalid };
     const me = await getSessionUser();
     if (!me) return NO_AUTH;
 
     const access = await eventAccess(data.eventId, me.id);
     if (!access?.canEdit) return FORBIDDEN;
-
-    if (!data.name?.trim()) return { success: false, error: 'Nom de l\'article requis' };
-    if (data.price != null && (!Number.isFinite(data.price) || data.price < 0)) {
-      return { success: false, error: 'Prix invalide' };
-    }
-    if (data.purchaseUrl && !/^https?:\/\//i.test(data.purchaseUrl)) {
-      return { success: false, error: 'Le lien d\'achat doit commencer par http:// ou https://' };
-    }
 
     await db.transaction(async (tx) => {
       const item = await tx.orm.public.ShoppingItem.create({
@@ -531,6 +528,8 @@ async function requireAdmin() {
 
 export async function createCategory(data: { name: string; color?: string; icon?: string }) {
   try {
+    const invalid = validateCategoryInput(data);
+    if (invalid) return { success: false, error: invalid };
     if (!(await requireAdmin())) return FORBIDDEN;
 
     await db.orm.public.Category.create({
@@ -549,6 +548,8 @@ export async function createCategory(data: { name: string; color?: string; icon?
 
 export async function updateCategory(id: string, data: { name: string; color?: string; icon?: string }) {
   try {
+    const invalid = validateCategoryInput(data);
+    if (invalid) return { success: false, error: invalid };
     if (!(await requireAdmin())) return FORBIDDEN;
 
     await db.orm.public.Category.where({ id }).update({
