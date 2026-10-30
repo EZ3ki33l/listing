@@ -5,7 +5,7 @@ la production. `@neondatabase/auth` 0.7.0-beta, Better Auth 1.7.6 côté serveur
 Méthode : script Node jetable (hors dépôt) qui appelle en HTTP les endpoints Better Auth de
 `NEON_AUTH_BASE_URL` avec `Origin: http://localhost:3000` et un pot de cookies, plus lecture
 seule de `neon_auth.verification` / `neon_auth.project_config` par SQL sur la branche de test.
-Seul destinataire réel : r.rousset31@gmail.com.
+Seul destinataire réel : <adresse de test du propriétaire>.
 
 Configuration de la branche au moment du test (inchangée, aucune modification faite) :
 `email_verification_method: otp`, `verify_email_on_sign_up: false`,
@@ -63,7 +63,7 @@ tout envoi** (aucun email parti) :
 Sans changement d'email possible, testé sur le contournement « nouveau compte Neon Auth
 avec le vrai email et le même mot de passe » (voir la décision) :
 
-- `POST /sign-up/email {email: "r.rousset31@gmail.com", name: "spike-00197f", password: <même>}`
+- `POST /sign-up/email {email: "<adresse de test du propriétaire>", name: "spike-00197f", password: <même>}`
   → 200, nouvel utilisateur Neon Auth (autre `id`), `emailVerified: false`. Aucun email envoyé.
 - `POST /sign-in/email` avec la vraie adresse et ce mot de passe → 200.
 - `POST /sign-in/email` avec l'ancienne adresse `.invalid` → **200 aussi** : les deux comptes
@@ -199,7 +199,7 @@ Aucune modification de configuration. Comptes Neon Auth de test (non supprimés)
 |---|---|---|
 | `7370696b652d303031393766@listing.invalid` | spike-00197f | ancien compte type `.invalid`, essais de changement d'email |
 | `7370696b652d61646d696e2d363331666535@listing.invalid` | spike-admin-631fe5 | tentative de voie admin (rôle resté `user`) |
-| `r.rousset31@gmail.com` | spike-00197f | contournement « nouveau compte » et réinitialisations (non vérifié) |
+| `<adresse de test du propriétaire>` | spike-00197f | contournement « nouveau compte » et réinitialisations (non vérifié) |
 
 ## Suite (même jour, après activation annoncée de « Verify at sign-up »)
 
@@ -272,7 +272,7 @@ transmettre : Better Auth hache de son côté.
 
 Comptes de test ajoutés : `spike-new-9a43b8` (`…@listing.invalid`, inscription avec session
 ouverte et même mot de passe). `spike-admin-631fe5` a maintenant un mot de passe aléatoire
-inconnu (neutralisé). Le compte `r.rousset31@gmail.com` n'a pas pu être supprimé (404) et
+inconnu (neutralisé). Le compte `<adresse de test du propriétaire>` n'a pas pu être supprimé (404) et
 reste sur la branche, ce qui bloque une nouvelle inscription de test avec cette adresse :
 il faudra une adresse en `+` (après vérification qu'elle arrive) ou une suppression depuis la
 console.

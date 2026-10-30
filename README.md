@@ -55,7 +55,6 @@ Créer un fichier `.env.local` à la racine (ignoré par git ; Next le charge **
 DATABASE_URL="postgresql://user:password@localhost:5432/listing"   # base de l'application
 NEON_AUTH_BASE_URL=url_auth_de_la_console_neon                      # console Neon > Auth
 NEON_AUTH_COOKIE_SECRET=une_chaine_de_32_caracteres_minimum         # openssl rand -base64 32
-ADMIN_USERNAME=pseudo_du_futur_admin                                # pour `npm run seed`
 CLIENT_IP_HEADER=x-real-ip                                          # voir ci-dessous (production)
 TEST_DATABASE_URL="postgresql://..."                                # base JETABLE pour les tests, jamais la production
 ```
@@ -65,7 +64,6 @@ TEST_DATABASE_URL="postgresql://..."                                # base JETAB
 | `DATABASE_URL` | Base PostgreSQL de l'application (Neon). |
 | `NEON_AUTH_BASE_URL` | URL du service Neon Auth (console Neon). |
 | `NEON_AUTH_COOKIE_SECRET` | Secret de 32 caractères minimum qui signe le cookie de session. |
-| `ADMIN_USERNAME` | Pseudo promu administrateur par `npm run seed` (après inscription sur le site). |
 | `TEST_DATABASE_URL` | Base de test pour les tests d'intégration (voir « Tests »). |
 | `CLIENT_IP_HEADER` | **Nom de l'en-tête de requête dont l'HÉBERGEUR garantit qu'il contient la vraie IP du client.** |
 
@@ -73,8 +71,9 @@ TEST_DATABASE_URL="postgresql://..."                                # base JETAB
 
 ```bash
 # Seulement après vous être inscrit sur le site : promouvoir le compte admin
-# (attention : `npm run seed` lit `.env`, pas `.env.local`)
-npm run seed
+# ADMIN_USERNAME n'est PAS dans .env.local : `npm run seed` ne lit que `.env` (donc la base de .env),
+# le pseudo se donne sur la ligne de commande (ou via ADMIN_USERNAME dans .env)
+ADMIN_USERNAME=pseudo npm run seed
 ```
 
 4. **Initialiser la base de données**
@@ -86,7 +85,7 @@ npm run contract:emit
 # Cibler la base de .env.local (ex. base de test) : préfixer par `node --env-file=.env.local node_modules/.bin/prisma7 db push`
 ```
 
-Le chantier sécurité a ajouté la table `RateLimitHit`, la colonne `Event.hidePurchasesFromOwner` (booléen, défaut `true`) et la colonne `User.authEmail`. Pour `authEmail`, Prisma affiche un avertissement générique sur la contrainte unique et demande `--accept-data-loss` : le SQL est pourtant **purement additif** (`ALTER TABLE "User" ADD COLUMN "authEmail" TEXT;` puis `CREATE UNIQUE INDEX "User_authEmail_key" ON "User"("authEmail");`, colonne vide partout).
+Le chantier sécurité a ajouté la table `RateLimitHit`, la colonne `Event.hidePurchasesFromOwner` (booléen, défaut `true`) et la colonne `User.authEmail`. Pour `authEmail`, Prisma affiche un avertissement générique sur la contrainte unique et demande `--accept-data-loss` : le SQL est pourtant **purement additif** (`ALTER TABLE "User" ADD COLUMN "authEmail" TEXT;` puis `CREATE UNIQUE INDEX "User_authEmail_key" ON "User"("authEmail");`, colonne vide partout). **En production, ne pas utiliser `db push`** : il applique toute différence entre la base réelle et `schema.prisma`, pas seulement ces ajouts ; le SQL exact à exécuter est dans `docs/superpowers/notes/2026-10-29-chantier-1-suivis.md` (§1).
 
 5. **Lancer l'application**
 ```bash
