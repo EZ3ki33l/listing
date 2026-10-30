@@ -14,6 +14,7 @@ import { parseTimestamp, toDates } from './dates';
 import { purchasesHidden, maskItems } from './purchases';
 import { validateEventInput, validateItemInput, validateCategoryInput, validatePassword, validateEmail, normEmail } from './validation';
 import { signInEmail } from './emailAuth';
+import { maskEmail } from './maskEmail';
 
 // Types
 export interface CreateEventData {
@@ -361,6 +362,35 @@ export async function getUserEvents() {
   } catch (error) {
     console.error('Erreur lors de la récupération des événements:', error);
     return { success: false, error: 'Erreur lors de la récupération des événements' };
+  }
+}
+
+// Suggestions de pseudos (début de pseudo, sans casse) pour le partage ; réservé au propriétaire, sans soi-même ni les déjà partagés
+export async function searchShareTargets(eventId: string, query: string) {
+  try {
+    const me = await getSessionUser();
+    if (!me) return NO_AUTH;
+    const q = typeof query === 'string' ? query.trim().slice(0, 32) : '';
+    if (q.length < 2) return { success: true, users: [] } as const;
+
+    const searchKey = rateKey('share-search', me.id);
+    if (await isLimited(searchKey, 300, HOUR)) return TOO_MANY;
+    await recordHit(searchKey);
+
+    if (!(await db.orm.public.Event.where({ id: eventId, ownerId: me.id }).first())) return FORBIDDEN;
+
+    const shares = await db.orm.public.EventShare.where({ eventId }).all();
+    const excluded = [me.id, ...shares.map((s) => s.userId)];
+    const users = await db.orm.public.User
+      .where((u) => and(u.username.ilike(`${exactly(q)}%`), u.id.notIn(excluded)))
+      .orderBy((u) => u.username.asc())
+      .select('username', 'email')
+      .all(); // shortcut: pas de take() dans cette version de l'ORM, on tronque en JS ; à remplacer par take(5) à la mise à jour
+
+    return { success: true, users: users.slice(0, 5).map((u) => ({ username: u.username, email: maskEmail(u.email ?? '') })) } as const;
+  } catch (error) {
+    console.error('Erreur lors de la recherche d\'utilisateurs:', error);
+    return { success: false, error: 'Erreur lors de la recherche' } as const;
   }
 }
 

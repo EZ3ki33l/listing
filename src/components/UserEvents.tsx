@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getUserEvents, shareEvent, createEvent, updateEvent, hideEvent, reactivateEvent } from '@/lib/actions';
+import { getUserEvents, shareEvent, searchShareTargets, createEvent, updateEvent, hideEvent, reactivateEvent } from '@/lib/actions';
 import Link from 'next/link';
 import Modal from './Modal';
 import { useFeedback } from './Feedback';
@@ -62,6 +62,8 @@ export default function UserEvents({ userId }: UserEventsProps) {
     targetUsername: '',
     canEdit: false
   });
+  const [suggestions, setSuggestions] = useState<readonly { username: string; email: string }[]>([]);
+  const [activeSuggestion, setActiveSuggestion] = useState(-1);
   const [createEventData, setCreateEventData] = useState({
     name: '',
     eventType: 'anniversaire',
@@ -106,6 +108,44 @@ export default function UserEvents({ userId }: UserEventsProps) {
       setIsInitializing(false);
     }
   }, [userId, loadEvents]);
+
+  // Suggestions après une courte pause de frappe ; le drapeau écarte la réponse d'une frappe déjà dépassée
+  useEffect(() => {
+    const q = shareData.targetUsername.trim();
+    if (!showShareForm || !selectedEvent || q.length < 2) return;
+    let stale = false;
+    const timer = setTimeout(async () => {
+      const result = await searchShareTargets(selectedEvent.id, q).catch(() => null);
+      if (stale) return;
+      // le pseudo déjà saisi en entier n'a plus besoin d'être suggéré (sinon la liste se rouvre après un choix)
+      setSuggestions(result?.success ? result.users.filter(u => u.username !== q) : []);
+      setActiveSuggestion(-1);
+    }, 250);
+    return () => { stale = true; clearTimeout(timer); };
+  }, [shareData.targetUsername, showShareForm, selectedEvent]);
+
+  // Les suggestions d'une saisie devenue trop courte ne s'affichent plus
+  const shown = shareData.targetUsername.trim().length >= 2 ? suggestions : [];
+
+  const pickSuggestion = (username: string) => {
+    setShareData(prev => ({ ...prev, targetUsername: username }));
+    setSuggestions([]);
+  };
+
+  const handleSuggestionKeys = (e: React.KeyboardEvent) => {
+    if (!shown.length) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const step = e.key === 'ArrowDown' ? 1 : -1;
+      setActiveSuggestion(i => (i + step + shown.length) % shown.length);
+    } else if (e.key === 'Enter' && activeSuggestion >= 0) {
+      e.preventDefault();
+      pickSuggestion(shown[activeSuggestion].username);
+    } else if (e.key === 'Escape') {
+      e.stopPropagation();
+      setSuggestions([]);
+    }
+  };
 
   const handleShare = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -479,7 +519,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
               </h3>
               
               <form onSubmit={handleShare} className="space-y-4">
-                <div>
+                <div className="relative">
                   <label htmlFor="targetUsername" className="block text-sm font-medium text-ink mb-2">
                     Nom d&apos;utilisateur
                   </label>
@@ -488,10 +528,33 @@ export default function UserEvents({ userId }: UserEventsProps) {
                     type="text"
                     required
                     className="w-full px-4 py-3 border border-ink rounded-none focus:outline-none focus:ring-2 focus:ring-razzmatazz focus:border-ink text-ink"
-                    placeholder="Pseudo de l'utilisateur"
+                    placeholder="Commencez à taper un pseudo"
+                    autoComplete="off"
+                    role="combobox"
+                    aria-expanded={shown.length > 0}
+                    aria-controls="share-suggestions"
+                    aria-activedescendant={activeSuggestion >= 0 ? `share-suggestion-${activeSuggestion}` : undefined}
                     value={shareData.targetUsername}
                     onChange={(e) => setShareData(prev => ({ ...prev, targetUsername: e.target.value }))}
+                    onKeyDown={handleSuggestionKeys}
                   />
+                  {shown.length > 0 && (
+                    <ul id="share-suggestions" role="listbox" className="absolute z-10 left-0 right-0 mt-1 bg-white border-[3px] border-ink shadow-[4px_4px_0_#0a0a0a]">
+                      {shown.map((u, i) => (
+                        <li
+                          key={u.username}
+                          id={`share-suggestion-${i}`}
+                          role="option"
+                          aria-selected={i === activeSuggestion}
+                          onMouseDown={(e) => { e.preventDefault(); pickSuggestion(u.username); }}
+                          className={`px-4 py-2 cursor-pointer flex justify-between gap-3 text-ink ${i === activeSuggestion ? 'bg-razzmatazz text-white' : 'hover:bg-gray-100'}`}
+                        >
+                          <span className="font-medium">{u.username}</span>
+                          <span className="text-sm opacity-70">{u.email}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
                 
                 <div className="flex items-center gap-2">
