@@ -15,6 +15,7 @@ import { purchasesHidden, maskItems } from './purchases';
 import { validateEventInput, validateItemInput, validateCategoryInput, validatePassword, validateEmail, normEmail } from './validation';
 import { signInEmail } from './emailAuth';
 import { maskEmail } from './maskEmail';
+import { importProduct } from './productImport';
 
 // Types
 export interface CreateEventData {
@@ -664,6 +665,23 @@ export async function createShoppingItem(data: CreateShoppingItemData) {
   } catch (error) {
     console.error('Erreur lors de la création de l\'article:', error);
     return { success: false, error: 'Erreur lors de la création de l\'article' };
+  }
+}
+
+// Pré-remplissage d'un article depuis un lien : ne crée rien, le formulaire reste à valider par l'utilisateur
+export async function importProductFromUrl(eventId: string, url: string) {
+  try {
+    if (typeof url !== 'string' || url.length > 2048 || !/^https?:\/\//i.test(url)) return { success: false, error: 'Le lien doit commencer par http:// ou https://' } as const;
+    const me = await getSessionUser();
+    if (!me) return NO_AUTH;
+    const access = await eventAccess(eventId, me.id);
+    if (!access?.canEdit) return FORBIDDEN;
+    if (await hitLimit('import-produit', me.id, 20)) return TOO_MANY; // chaque import consomme le quota gratuit de l'IA
+
+    return { success: true, product: await importProduct(url) } as const;
+  } catch (error) {
+    console.error('Erreur lors de l\'import du produit:', error);
+    return { success: false, error: 'Impossible de lire ce produit, remplissez le formulaire à la main' } as const;
   }
 }
 
