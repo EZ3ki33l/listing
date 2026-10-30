@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CheckCircle, XCircle, AlertTriangle, Info, X } from 'lucide-react';
 
 interface NotificationToastProps {
@@ -20,12 +20,17 @@ export default function NotificationToast({
 }: NotificationToastProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [progress, setProgress] = useState(100);
+  const closeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  // Attendre l'animation de sortie ; le délai est annulé au démontage (un toast remplacé ne doit pas fermer son successeur)
+  const closeSoon = useCallback(() => {
+    setIsVisible(false);
+    closeTimer.current = setTimeout(onClose, 300);
+  }, [onClose]);
+  useEffect(() => () => clearTimeout(closeTimer.current), []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsVisible(false);
-      setTimeout(onClose, 300); // Attendre l'animation de sortie
-    }, duration);
+    const timer = setTimeout(closeSoon, duration);
 
     const progressTimer = setInterval(() => {
       setProgress(prev => Math.max(0, prev - 2));
@@ -35,7 +40,7 @@ export default function NotificationToast({
       clearTimeout(timer);
       clearInterval(progressTimer);
     };
-  }, [duration, onClose]);
+  }, [duration, closeSoon]);
 
   const getIcon = () => {
     switch (type) {
@@ -118,10 +123,7 @@ export default function NotificationToast({
 
             <button
               aria-label="Fermer"
-              onClick={() => {
-                setIsVisible(false);
-                setTimeout(onClose, 300);
-              }}
+              onClick={closeSoon}
               className="flex-shrink-0 ml-2 p-1 rounded-full hover:bg-white/20 transition-colors"
             >
               <X className="w-4 h-4" />

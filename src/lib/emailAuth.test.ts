@@ -79,7 +79,7 @@ describe.skipIf(!TEST_DB)('email et mot de passe oublié (base réelle, Neon Aut
   const ok = (id: string) => { cookie = id; return { data: { user: { id } }, error: null }; };
   const ko = (code: string) => ({ data: null, error: { code, message: code } });
 
-  const mkUser = async (o: { username: string; email?: string | null; authEmail?: string | null; authId?: string | null; password?: string | null }) => {
+  const mkUser = async (o: { username: string; email?: string | null; authEmail?: string | null; authId?: string | null; password?: string | null; createdAt?: string }) => {
     const u = await db.orm.public.User.create({ email: null, authEmail: null, authId: null, password: null, ...o });
     keys.add(rateKey('login', u.username));
     return u;
@@ -389,6 +389,67 @@ describe.skipIf(!TEST_DB)('email et mot de passe oublié (base réelle, Neon Aut
       expect(await byName(`RegKo${tag}`)).toBeNull();
       expect(log).not.toContain('deleteUser');
       err.mockRestore();
+    });
+
+    describe('inscription interrompue (ligne sans authId ni mot de passe)', () => {
+      const ago = (ms: number) => new Date(Date.now() - ms).toISOString();
+      const MIN = 60 * 1000;
+      const TAKEN = { success: false, error: 'Nom d\'utilisateur ou email déjà utilisé' };
+
+      it('ligne récente (inscription peut-être en cours) : toujours prise', async () => {
+        const email = `fresh${tag}@exemple.fr`;
+        const u = await mkUser({ username: `RegFresh${tag}`, email, authEmail: email, createdAt: ago(MIN) });
+        expect(await reg('RegFresh', email)).toEqual(TAKEN);
+        expect(await reg('RegFresh', `autre-fresh${tag}@exemple.fr`)).toEqual(TAKEN); // même pseudo
+        expect(await row(u.id)).not.toBeNull();
+        expect(log).toEqual([]);
+      });
+
+      it('ligne périmée (> 5 min) : récupérée, l\'inscription réussit', async () => {
+        const email = `stale${tag}@exemple.fr`;
+        const u = await mkUser({ username: `RegStale${tag}`, email, authEmail: email, createdAt: ago(10 * MIN) });
+        expect(await reg('RegStale', email)).toMatchObject({ success: true, user: { username: `RegStale${tag}`, email } });
+        expect(await row(u.id)).toBeNull();
+        expect(await byName(`RegStale${tag}`)).toMatchObject({ email, authEmail: email, authId: `neon-${email}` });
+      });
+
+      it('ligne périmée sur l\'adresse seule (autre pseudo) : récupérée aussi', async () => {
+        const email = `stale-mail${tag}@exemple.fr`;
+        const u = await mkUser({ username: `OrphanMail${tag}`, email, authEmail: email, createdAt: ago(10 * MIN) });
+        expect(await reg('RegStaleMail', email)).toMatchObject({ success: true });
+        expect(await row(u.id)).toBeNull();
+      });
+
+      it('ancien compte bcrypt (mot de passe, sans authId), même ancien : jamais récupéré', async () => {
+        const email = `bcrypt${tag}@exemple.fr`;
+        const u = await mkUser({ username: `RegBcrypt${tag}`, email, authEmail: email, password: bcrypt.hashSync('x', 4), createdAt: ago(10 * MIN) });
+        expect(await reg('RegBcrypt', email)).toEqual(TAKEN);
+        expect(await row(u.id)).not.toBeNull();
+      });
+
+      it('compte relié à Neon (authId), même ancien : jamais récupéré', async () => {
+        const email = `linked${tag}@exemple.fr`;
+        const u = await mkUser({ username: `RegLinked${tag}`, email, authEmail: email, authId: `neon-linked${tag}`, createdAt: ago(10 * MIN) });
+        expect(await reg('RegLinked', email)).toEqual(TAKEN);
+        expect(await row(u.id)).not.toBeNull();
+      });
+
+      it('mise à jour de authId en échec après l\'inscription Neon : erreur (pas de faux succès), ligne retirée, la nouvelle tentative reprend le compte Neon', async () => {
+        const email = `upfail${tag}@exemple.fr`;
+        // authId est unique : un autre utilisateur qui le porte fait échouer la mise à jour
+        const blocker = await mkUser({ username: `Blocker${tag}`, authId: `neon-${email}` });
+        const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+        expect(await reg('RegUpFail', email)).toEqual({ success: false, error: 'Erreur lors de l\'inscription' });
+        expect(await byName(`RegUpFail${tag}`)).toBeNull(); // ligne annulée
+        expect(neon.has(email)).toBe(true); // compte Neon créé, orphelin
+        err.mockRestore();
+
+        await db.orm.public.User.where({ id: blocker.id }).update({ authId: null });
+        log = [];
+        expect(await reg('RegUpFail', email)).toMatchObject({ success: true });
+        expect(log).toEqual([`signUp ${email}`, `signIn ${email}`, 'signOut']); // USER_ALREADY_EXISTS puis reprise avec le même mot de passe
+        expect(await byName(`RegUpFail${tag}`)).toMatchObject({ authId: `neon-${email}` });
+      });
     });
   });
 

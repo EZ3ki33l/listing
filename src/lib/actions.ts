@@ -42,6 +42,7 @@ export interface UpdateItemStatusData {
 
 const NO_AUTH = { success: false, error: 'Vous devez être connecté' } as const;
 const HOUR = 60 * 60 * 1000;
+const ORPHAN_AGE = 5 * 60 * 1000; // âge à partir duquel une inscription interrompue est considérée abandonnée
 const FORBIDDEN = { success: false, error: 'Accès refusé' } as const;
 
 // Les articles sont lus avec orderBy([createdAt, id]) : un achat réécrit la ligne, l'ordre physique trahirait les achats au propriétaire
@@ -93,10 +94,15 @@ export async function registerUser(username: string, password: string, email: st
     await recordHit(regKey);
     if (regIpKey) await recordHit(regIpKey);
 
-    const existingUser = await db.orm.public.User
+    const clashing = await db.orm.public.User
       .where((u) => or(u.username.eq(username), u.email.ilike(exactly(email)), u.authEmail.ilike(exactly(email))))
-      .first();
-    if (existingUser) return TAKEN;
+      .all();
+    // Une inscription interrompue laisse une ligne sans authId ni mot de passe : au bout de 5 min elle est récupérée.
+    // Les comptes bcrypt (mot de passe) et les comptes reliés à Neon (authId) ne le sont jamais.
+    const staleBefore = Date.now() - ORPHAN_AGE;
+    const isStale = (u: (typeof clashing)[number]) => !u.authId && !u.password && parseTimestamp(u.createdAt).getTime() < staleBefore;
+    if (clashing.some((u) => !isStale(u))) return TAKEN;
+    for (const u of clashing) await db.orm.public.User.where({ id: u.id }).delete();
 
     // Ligne de l'app d'abord : elle se retire si l'inscription Neon échoue, alors qu'un compte Neon orphelin ne se supprime pas
     const user = await db.orm.public.User.create({ username, email, authEmail: email });
