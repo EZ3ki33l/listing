@@ -5,7 +5,7 @@ import { PageLoader, SiteHeader, PageHero } from '@/components/PageChrome';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Slider, { revealSlide } from '@/components/Slider';
 import UserMenu from '@/components/UserMenu';
-import { getEvent, createShoppingItem, updateItemStatus, deleteShoppingItem, getCategories } from '@/lib/actions';
+import { getEvent, createShoppingItem, importProductFromUrl, updateItemStatus, deleteShoppingItem, getCategories } from '@/lib/actions';
 import Link from 'next/link';
 import CategoryFilter from '@/components/CategoryFilter';
 import SearchBar from '@/components/SearchBar';
@@ -73,6 +73,7 @@ function ListePageContent() {
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string } | null>(null);
   const [showThankYouModal, setShowThankYouModal] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
   const [newItem, setNewItem] = useState({
     name: '',
     description: '',
@@ -188,6 +189,32 @@ function ListePageContent() {
       notify('error', 'Erreur', "Erreur lors de l'ajout de l'article");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleImportItem = async () => {
+    if (!eventId) return;
+    setIsImporting(true);
+    try {
+      const result = await importProductFromUrl(eventId, newItem.purchaseUrl.trim());
+      if (result.success) {
+        const { name, description, price, photos } = result.product;
+        setNewItem(prev => ({
+          ...prev,
+          name,
+          description,
+          price: price != null ? String(price) : prev.price,
+          photos: photos.length ? photos : prev.photos,
+        }));
+        notify('success', 'Produit lu', photos.length ? 'Vérifiez les champs puis ajoutez l\'article.' : 'Aucune photo trouvée : ajoutez-en une à la main puis validez.');
+      } else {
+        notify('error', 'Erreur', result.error);
+      }
+    } catch (error) {
+      console.error("Erreur lors de l'import du produit:", error);
+      notify('error', 'Erreur', "Impossible de lire ce produit");
+    } finally {
+      setIsImporting(false);
     }
   };
 
@@ -452,6 +479,23 @@ function ListePageContent() {
           <div className="bg-white rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] p-6 mb-8">
             <h3 className="text-xl font-semibold text-ink mb-4">✨ Ajouter un nouvel article</h3>
             <form onSubmit={handleAddItem} className="space-y-4">
+              <div className="flex flex-col md:flex-row gap-3">
+                <input
+                  type="url"
+                  placeholder="🔗 Lien du produit (ex: Amazon, etc.) - Optionnel"
+                  value={newItem.purchaseUrl}
+                  onChange={(e) => setNewItem(prev => ({ ...prev, purchaseUrl: e.target.value }))}
+                  className="flex-1 border border-ink rounded-none px-3 py-2 focus:outline-none focus:ring-2 focus:ring-razzmatazz text-ink"
+                />
+                <button
+                  type="button"
+                  onClick={handleImportItem}
+                  disabled={isImporting || !newItem.purchaseUrl.trim()}
+                  className="btn disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isImporting ? '⏳ Lecture du produit...' : '✨ Remplir avec l\'IA'}
+                </button>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <input
                   type="text"
@@ -493,14 +537,6 @@ function ListePageContent() {
                 />
               </div>
               
-              <input
-                type="url"
-                placeholder="🔗 Lien d'achat (ex: Amazon, etc.) - Optionnel"
-                value={newItem.purchaseUrl}
-                onChange={(e) => setNewItem(prev => ({ ...prev, purchaseUrl: e.target.value }))}
-                className="border border-ink rounded-none px-3 py-2 focus:outline-none focus:ring-2 focus:ring-razzmatazz text-ink"
-              />
-
               {/* Gestion des photos */}
               <div>
                 <h4 className="text-lg font-medium text-ink mb-3">📸 Photos</h4>
