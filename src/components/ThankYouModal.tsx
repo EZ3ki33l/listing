@@ -80,9 +80,9 @@ export default function ThankYouModal({ isOpen, onClose }: ThankYouModalProps) {
         />
 
         {/* Modal */}
-        <div className="relative transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all w-full max-w-none max-h-[calc(100vh-2rem)] m-4 flex flex-col">
+        <div className="relative overflow-hidden rounded-none bg-white text-left border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] transition-all w-full max-w-none max-h-[calc(100vh-2rem)] m-4 flex flex-col">
           {/* Header */}
-          <div className="bg-gradient-to-r from-green-500 to-emerald-600 px-6 py-4">
+          <div className="px-6 py-4 bg-paper">
             <div className="relative flex items-center justify-center">
               <div className="flex items-center space-x-3">
                 <Heart className="w-8 h-8 text-white fill-current" />
@@ -92,7 +92,7 @@ export default function ThankYouModal({ isOpen, onClose }: ThankYouModalProps) {
               </div>
               <button
                 onClick={onClose}
-                className="absolute right-0 rounded-full bg-white/20 text-white hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-green-500 transition-all"
+                className="absolute right-0 rounded-none bg-white/20 text-white hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-green-500 transition-all"
               >
                 <X className="w-6 h-6" />
               </button>
@@ -103,7 +103,7 @@ export default function ThankYouModal({ isOpen, onClose }: ThankYouModalProps) {
           <div className="bg-white px-6 py-6 flex-1 flex flex-col overflow-y-auto">
             <div className="text-center space-y-4 flex-1 flex flex-col justify-center">
               <div className="space-y-2 text-center">
-                <p className="text-lg text-gray-600">
+                <p className="text-lg text-ink">
                   T&apos;es trop cool d&apos;avoir acheté ça ! 
                   T&apos;es trop cool d&apos;avoir acheté ça ! 
                 </p>
@@ -111,13 +111,13 @@ export default function ThankYouModal({ isOpen, onClose }: ThankYouModalProps) {
 
               {/* Vidéo locale simple */}
               <div className="relative w-full max-w-md mx-auto flex-1 flex items-center justify-center min-h-0">
-                <div className="relative aspect-[9/16] w-full max-h-[40vh] rounded-xl overflow-hidden shadow-lg">
+                <div className="relative aspect-[9/16] w-full max-h-[40vh] rounded-none overflow-hidden border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a]">
                   <video
                     ref={videoRef}
                     src={videoSrc}
                     autoPlay
                     playsInline
-                    className="w-full h-full object-contain rounded-xl"
+                    className="w-full h-full object-contain rounded-none"
                     controls
                     onEnded={() => {
                       if (playCount < 1) {
@@ -133,7 +133,7 @@ export default function ThankYouModal({ isOpen, onClose }: ThankYouModalProps) {
               </div>
 
               <div className="space-y-3">
-                <p className="text-gray-700 text-lg">
+                <p className="text-ink text-lg">
                   Merci encore ! 🙏
                 </p>
                 <div className="flex justify-center space-x-2">
@@ -148,10 +148,10 @@ export default function ThankYouModal({ isOpen, onClose }: ThankYouModalProps) {
           </div>
 
           {/* Footer */}
-          <div className="bg-gray-50 px-6 py-6">
+          <div className="bg-heliotrope/20 px-6 py-6">
             <button
               type="button"
-              className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold py-4 px-8 rounded-xl transition-all duration-200 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 text-lg"
+              className="w-full text-white font-bold py-4 px-8 rounded-none transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 text-lg bg-razzmatazz hover:bg-ink border-[3px] border-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
               onClick={onClose}
             >
               Allez, on continue ! 💪

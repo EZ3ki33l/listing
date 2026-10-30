@@ -71,13 +71,13 @@ export default function UserMenu({ userId }: UserMenuProps) {
 
   const getAvatarColor = (name: string) => {
     const colors = [
-      'bg-blue-500',
-      'bg-green-500',
+      'bg-ink',
+      'bg-malachite !text-ink',
       'bg-purple-500',
       'bg-pink-500',
-      'bg-indigo-500',
-      'bg-red-500',
-      'bg-yellow-500',
+      'bg-ink',
+      'bg-razzmatazz',
+      'bg-heliotrope !text-ink',
       'bg-teal-500'
     ];
     const index = name.charCodeAt(0) % colors.length;
@@ -89,21 +89,21 @@ export default function UserMenu({ userId }: UserMenuProps) {
       {/* Bouton du menu utilisateur */}
               <button
           onClick={() => setIsMenuOpen(!isMenuOpen)}
-          className="flex items-center space-x-2 p-2 rounded-full hover:bg-white/20 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/50"
+          className="flex items-center space-x-2 p-2 rounded-none hover:bg-white/20 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-white/50"
         >
         {/* Avatar avec initiales */}
-        <div className={`w-8 h-8 rounded-full ${getAvatarColor(user.username)} flex items-center justify-center text-white font-semibold text-sm`}>
+        <div className={`w-8 h-8 rounded-none ${getAvatarColor(user.username)} flex items-center justify-center text-white font-semibold text-sm`}>
           {getInitials(user.username)}
         </div>
         
         {/* Nom d'utilisateur (visible sur desktop) */}
-        <span className="hidden md:block text-sm font-medium text-gray-700">
+        <span className="hidden md:block text-sm font-medium text-ink">
           {user.username}
         </span>
         
         {/* Icône de chevron */}
         <svg
-          className={`w-4 h-4 text-gray-600 transition-transform duration-200 ${
+          className={`w-4 h-4 text-ink transition- duration-200 ${
             isMenuOpen ? 'rotate-180' : ''
           }`}
           fill="none"
@@ -116,24 +116,24 @@ export default function UserMenu({ userId }: UserMenuProps) {
 
                       {/* Menu déroulant simple */}
         {isMenuOpen && (
-          <div className="absolute right-0 mt-2 w-64 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-[20]">
+          <div className="absolute right-0 mt-2 w-64 bg-white rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] py-2 z-[20]">
             {/* En-tête du menu */}
-            <div className="px-4 py-3 border-b border-gray-100">
+            <div className="px-4 py-3 border-b border-ink">
               <div className="flex items-center space-x-3">
-                <div className={`w-12 h-12 rounded-full ${getAvatarColor(user.username)} flex items-center justify-center text-white font-semibold text-lg`}>
+                <div className={`w-12 h-12 rounded-none ${getAvatarColor(user.username)} flex items-center justify-center text-white font-semibold text-lg`}>
                   {getInitials(user.username)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">
+                  <p className="text-sm font-semibold text-ink truncate">
                     {user.username}
                   </p>
                   {user.email && (
-                    <p className="text-xs text-gray-500 truncate">
+                    <p className="text-xs text-ink/60 truncate">
                       {user.email}
                     </p>
                   )}
                   {user.isAdmin && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-none text-xs font-medium bg-yellow-100 text-yellow-800">
                       👑 Admin
                     </span>
                   )}
@@ -145,20 +145,20 @@ export default function UserMenu({ userId }: UserMenuProps) {
             <div className="py-1">
               <Link
                 href="/user"
-                className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+                className="flex items-center px-4 py-2 text-sm text-ink hover:bg-heliotrope/20 transition-colors duration-150"
                 onClick={() => setIsMenuOpen(false)}
               >
-                <User className="w-4 h-4 mr-3 text-gray-400" />
+                <User className="w-4 h-4 mr-3 text-ink/60" />
                 Mon espace personnel
               </Link>
                
               {user.isAdmin && (
                 <Link
                   href="/admin"
-                  className="flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+                  className="flex items-center px-4 py-2 text-sm text-ink hover:bg-heliotrope/20 transition-colors duration-150"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  <Settings className="w-4 h-4 mr-3 text-gray-400" />
+                  <Settings className="w-4 h-4 mr-3 text-ink/60" />
                   Administration
                 </Link>
               )}

@@ -1,5 +1,7 @@
 'use client';
 
+import { ChevronDown } from 'lucide-react';
+
 import { useState } from 'react';
 
 interface Category {
@@ -58,10 +60,10 @@ export default function CategoryFilter({
       {showAll && (
         <button
           onClick={handleSelectAll}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+          className={`px-4 py-2 rounded-none text-sm font-bold uppercase tracking-wide transition-all ${
             selectedCategories.length === 0
-              ? 'bg-blue-600 text-white shadow-lg'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              ? 'bg-ink text-white border-[3px] border-ink shadow-[4px_4px_0_#31ec56]'
+              : 'bg-paper text-ink border-[3px] border-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]'
           }`}
         >
           Toutes ({totalItems})
@@ -72,28 +74,24 @@ export default function CategoryFilter({
       <div className="relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className={`px-4 py-2 rounded-full text-sm font-medium transition-colors flex items-center gap-2 ${
+          className={`px-4 py-2 rounded-none text-sm font-bold uppercase tracking-wide transition-all flex items-center gap-2 ${
             selectedCategories.length > 0 
-              ? 'text-white shadow-lg'
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+              ? 'bg-heliotrope text-ink border-[3px] border-ink shadow-[4px_4px_0_#0a0a0a]'
+              : 'bg-paper text-ink border-[3px] border-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]'
           }`}
-          style={{
-            backgroundColor: selectedCategories.length > 0 ? '#8B5CF6' : undefined, // Couleur violette pour la sélection multiple
-            border: selectedCategories.length > 0 ? 'none' : undefined
-          }}
         >
           {getDisplayText()}
-          <span className="text-xs">▼</span>
+          <ChevronDown size={16} aria-hidden="true" />
         </button>
 
         {/* Menu déroulant */}
         {isOpen && (
-          <div className="absolute top-full left-0 mt-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-56 max-h-80 overflow-y-auto">
+          <div className="absolute top-full left-0 mt-2 bg-white border-ink rounded-none border-[3px] shadow-[5px_5px_0_#0a0a0a] z-50 min-w-56 max-h-80 overflow-y-auto">
             <div className="p-3">
               {/* En-tête du menu */}
-              <div className="mb-3 pb-2 border-b border-gray-200">
-                <h4 className="font-medium text-gray-800 text-sm">Sélectionner les catégories</h4>
-                <p className="text-xs text-gray-500 mt-1">
+              <div className="mb-3 pb-2 border-b border-ink">
+                <h4 className="font-medium text-ink text-sm">Sélectionner les catégories</h4>
+                <p className="text-xs text-ink/60 mt-1">
                   {selectedCategories.length === 0 
                     ? 'Toutes les catégories sont sélectionnées' 
                     : `${selectedCategories.length} catégorie(s) sélectionnée(s)`
@@ -109,17 +107,17 @@ export default function CategoryFilter({
                     <button
                       key={category.id}
                       onClick={() => handleCategoryToggle(category.id)}
-                      className={`w-full text-left px-3 py-2 rounded-lg transition-colors flex items-center gap-3 ${
+                      className={`w-full text-left px-3 py-2 rounded-none transition-colors flex items-center gap-3 ${
                         isSelected 
                           ? 'bg-purple-100 border border-purple-200' 
-                          : 'hover:bg-gray-50 border border-transparent'
+                          : 'hover:bg-heliotrope/20 border border-transparent'
                       }`}
                     >
                       {/* Checkbox visuelle */}
-                      <div className={`w-4 h-4 rounded border-2 flex items-center justify-center ${
+                      <div className={`w-4 h-4 rounded-none border-2 flex items-center justify-center ${
                         isSelected 
                           ? 'bg-purple-600 border-purple-600' 
-                          : 'border-gray-300'
+                          : 'border-ink'
                       }`}>
                         {isSelected && (
                           <span className="text-white text-xs">✓</span>
@@ -129,16 +127,16 @@ export default function CategoryFilter({
                       {/* Icône et nom de la catégorie */}
                       <span className="text-lg">{category.icon}</span>
                       <span className={`flex-1 font-medium ${
-                        isSelected ? 'text-purple-800' : 'text-gray-800'
+                        isSelected ? 'text-razzmatazz' : 'text-ink'
                       }`}>
                         {category.name}
                       </span>
 
                       {/* Compteur d'articles */}
-                      <span className={`text-xs px-2 py-1 rounded-full ${
+                      <span className={`text-xs px-2 py-1 rounded-none ${
                         isSelected 
-                          ? 'bg-purple-200 text-purple-700' 
-                          : 'bg-gray-100 text-gray-600'
+                          ? 'bg-purple-200 text-razzmatazz' 
+                          : 'bg-heliotrope/20 text-ink'
                       }`}>
                         {category.itemCount}
                       </span>
@@ -148,16 +146,16 @@ export default function CategoryFilter({
               </div>
 
               {/* Actions du menu */}
-              <div className="mt-3 pt-2 border-t border-gray-200 flex gap-2">
+              <div className="mt-3 pt-2 border-t border-ink flex gap-2">
                 <button
                   onClick={() => onCategorySelect([])}
-                  className="flex-1 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
+                  className="flex-1 px-3 py-2 text-sm text-ink hover:text-ink hover:bg-heliotrope/20 rounded-none transition-colors"
                 >
                   Sélectionner tout
                 </button>
                 <button
                   onClick={() => onCategorySelect([])}
-                  className="flex-1 px-3 py-2 text-sm text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-lg transition-colors"
+                  className="flex-1 px-3 py-2 text-sm text-ink hover:text-ink hover:bg-heliotrope/20 rounded-none transition-colors"
                 >
                   Effacer
                 </button>

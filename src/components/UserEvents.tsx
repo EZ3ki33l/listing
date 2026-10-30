@@ -261,8 +261,8 @@ export default function UserEvents({ userId }: UserEventsProps) {
   if (isInitializing) {
     return (
       <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Initialisation...</p>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-ink mx-auto"></div>
+        <p className="mt-4 text-ink">Initialisation...</p>
       </div>
     );
   }
@@ -270,8 +270,8 @@ export default function UserEvents({ userId }: UserEventsProps) {
   if (isLoading) {
     return (
       <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-        <p className="mt-4 text-gray-600">Chargement de vos événements...</p>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-ink mx-auto"></div>
+        <p className="mt-4 text-ink">Chargement de vos événements...</p>
       </div>
     );
   }
@@ -288,13 +288,13 @@ export default function UserEvents({ userId }: UserEventsProps) {
       {/* Événements personnels */}
       <div>
         <div className="flex justify-between items-center mb-6">
-          <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-3">
+          <h3 className="text-2xl sm:text-3xl uppercase flex items-center gap-3">
             🏠 Mes événements
-            <span className="text-sm font-normal text-gray-500 bg-blue-100 px-3 py-1 rounded-full">
+            <span className="label !bg-razzmatazz">
               {visibleOwnedEvents.length}
             </span>
             {hiddenOwnedEvents.length > 0 && (
-              <span className="text-sm font-normal text-gray-500 bg-gray-200 px-3 py-1 rounded-full">
+              <span className="label">
                 {hiddenOwnedEvents.length} masqué(s)
               </span>
             )}
@@ -302,20 +302,20 @@ export default function UserEvents({ userId }: UserEventsProps) {
           
           <button
             onClick={() => setShowCreateForm(true)}
-            className="inline-block bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 py-2 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
+            className="inline-block text-white px-4 py-2 rounded-none transition-all border-[3px] border-ink  font-medium bg-razzmatazz hover:bg-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
           >
             ➕ Nouvel événement
           </button>
         </div>
         
         {ownedEvents.length === 0 ? (
-          <div className="text-center py-8 bg-gray-50 rounded-2xl min-h-[200px] flex items-center justify-center">
+          <div className="text-center py-8 bg-paper border-[3px] border-dashed border-ink min-h-[200px] flex items-center justify-center">
             <div>
-              <p className="text-gray-600">Vous n&apos;avez pas encore créé d&apos;événements.</p>
+              <p className="text-ink">Vous n&apos;avez pas encore créé d&apos;événements.</p>
               <div className="mt-4">
                 <button
                   onClick={() => setShowCreateForm(true)}
-                  className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
+                  className="inline-block text-white px-6 py-3 rounded-none transition-all border-[3px] border-ink  font-medium bg-razzmatazz hover:bg-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
                 >
                   ➕ Créer mon premier événement
                 </button>
@@ -328,29 +328,29 @@ export default function UserEvents({ userId }: UserEventsProps) {
             {visibleOwnedEvents.length > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
                 {visibleOwnedEvents.map((event) => (
-                  <div key={event.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-300">
+                  <div key={event.id} className="bg-white rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] p-6 transition-all">
                     <div className="flex justify-between items-start mb-4">
-                      <h4 className="text-lg font-semibold text-gray-800">{event.name}</h4>
-                      <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                      <h4 className="text-lg font-semibold text-ink">{event.name}</h4>
+                      <span className="label !bg-heliotrope !text-ink">
                         Personnel
                       </span>
                     </div>
                     
-                    <p className="text-sm text-gray-600 mb-4">
+                    <p className="text-sm text-ink mb-4">
                       Type: {event.eventType} • {event.hasTargetDate && event.targetDate ? 'Avec date' : 'Sans date'}
                     </p>
                     
                     <div className="flex flex-wrap gap-2">
                       <Link
                         href={`/liste?event=${event.id}`}
-                        className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300"
+                        className="flex-1 text-white px-4 py-2 rounded-none text-center text-sm font-medium transition-all bg-razzmatazz hover:bg-ink border-[3px] border-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
                       >
                         🛍️ Voir la liste
                       </Link>
                       
                       <button
                         onClick={() => handleEditEvent(event)}
-                        className="bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300"
+                        className="text-white px-3 py-2 rounded-none text-sm font-medium transition-all bg-razzmatazz hover:bg-ink border-[3px] border-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
                         title="Modifier cet événement"
                       >
                         ✏️
@@ -361,7 +361,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
                           setSelectedEvent(event);
                           setShowShareForm(true);
                         }}
-                        className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300"
+                        className="text-white px-3 py-2 rounded-none text-sm font-medium transition-all bg-razzmatazz hover:bg-ink border-[3px] border-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
                         title="Partager cet événement"
                       >
                         📤
@@ -369,7 +369,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
                       
                       <button
                         onClick={() => handleHideEvent(event.id)}
-                        className="bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-all duration-300"
+                        className="text-white px-3 py-2 rounded-none text-sm font-medium transition-all bg-razzmatazz hover:bg-ink border-[3px] border-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
                         title="Masquer cet événement"
                       >
                         👁️‍🗨️
@@ -383,37 +383,37 @@ export default function UserEvents({ userId }: UserEventsProps) {
             {/* Événements masqués */}
             {hiddenOwnedEvents.length > 0 && (
               <div className="mt-8">
-                <h4 className="text-xl font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                <h4 className="text-xl font-semibold text-ink mb-4 flex items-center gap-2">
                   👁️‍🗨️ Événements masqués
-                  <span className="text-sm font-normal text-gray-500 bg-gray-200 px-3 py-1 rounded-full">
+                  <span className="label">
                     {hiddenOwnedEvents.length}
                   </span>
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   {hiddenOwnedEvents.map((event) => (
-                    <div key={event.id} className="bg-gray-50 rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-300 opacity-75">
+                    <div key={event.id} className="bg-heliotrope/20 rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] p-6 transition-all opacity-75">
                       <div className="flex justify-between items-start mb-4">
-                        <h4 className="text-lg font-semibold text-gray-600">{event.name}</h4>
-                        <span className="text-xs bg-gray-300 text-gray-700 px-2 py-1 rounded-full">
+                        <h4 className="text-lg font-semibold text-ink">{event.name}</h4>
+                        <span className="text-xs bg-gray-300 text-ink px-2 py-1 rounded-none">
                           Masqué
                         </span>
                       </div>
                       
-                      <p className="text-sm text-gray-500 mb-4">
+                      <p className="text-sm text-ink/60 mb-4">
                         Type: {event.eventType} • {event.hasTargetDate && event.targetDate ? 'Avec date' : 'Sans date'}
                       </p>
                       
                       <div className="flex flex-wrap gap-2">
                         <Link
                           href={`/liste?event=${event.id}`}
-                          className="flex-1 bg-gradient-to-r from-gray-400 to-gray-500 hover:from-gray-500 hover:to-gray-600 text-white px-4 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300"
+                          className="flex-1 text-white px-4 py-2 rounded-none text-center text-sm font-medium transition-all bg-razzmatazz hover:bg-ink border-[3px] border-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
                         >
                           🛍️ Voir la liste
                         </Link>
                         
                         <button
                           onClick={() => handleReactivateEvent(event.id)}
-                          className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300"
+                          className="text-white px-4 py-2 rounded-none text-sm font-medium transition-all bg-razzmatazz hover:bg-ink border-[3px] border-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
                           title="Réactiver cet événement"
                         >
                           {(event.eventType === 'anniversaire' || event.eventType === 'noel') ? '🔄 Réactiver (+1 an)' : '🔄 Réactiver'}
@@ -430,36 +430,36 @@ export default function UserEvents({ userId }: UserEventsProps) {
 
       {/* Événements partagés */}
       <div>
-        <h3 className="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
+        <h3 className="text-2xl sm:text-3xl uppercase mb-6 flex items-center gap-3">
           🤝 Événements partagés avec moi
-          <span className="text-sm font-normal text-gray-500 bg-green-100 px-3 py-1 rounded-full">
+          <span className="label !bg-razzmatazz">
             {sharedEvents.length}
           </span>
         </h3>
         
         {sharedEvents.length === 0 ? (
-          <div className="text-center py-8 bg-gray-50 rounded-2xl min-h-[200px] flex items-center justify-center">
-            <p className="text-gray-600">Aucun événement partagé avec vous pour le moment.</p>
+          <div className="text-center py-8 bg-paper border-[3px] border-dashed border-ink min-h-[200px] flex items-center justify-center">
+            <p className="text-ink">Aucun événement partagé avec vous pour le moment.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {sharedEvents.map((event) => (
-              <div key={event.id} className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 hover:shadow-xl transition-all duration-300">
+              <div key={event.id} className="bg-white rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] p-6 transition-all">
                 <div className="flex justify-between items-start mb-4">
-                  <h4 className="text-lg font-semibold text-gray-800">{event.name}</h4>
-                  <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                  <h4 className="text-lg font-semibold text-ink">{event.name}</h4>
+                  <span className="label !bg-malachite !text-ink">
                     Partagé par {event.sharedBy}
                   </span>
                 </div>
                 
-                <p className="text-sm text-gray-600 mb-4">
+                <p className="text-sm text-ink mb-4">
                   Type: {event.eventType} • {event.hasTargetDate && event.targetDate ? 'Avec date' : 'Sans date'}
                   {event.canEdit && ' • Vous pouvez modifier'}
                 </p>
                 
                 <Link
                   href={`/liste?event=${event.id}`}
-                  className="block w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 py-2 rounded-lg text-center text-sm font-medium transition-all duration-300"
+                  className="block w-full text-white px-4 py-2 rounded-none text-center text-sm font-medium transition-all bg-razzmatazz hover:bg-ink border-[3px] border-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
                 >
                   🛍️ Voir la liste
                 </Link>
@@ -472,22 +472,22 @@ export default function UserEvents({ userId }: UserEventsProps) {
       {/* Modal de partage */}
       {showShareForm && selectedEvent && (
         <Modal open onClose={() => { setShowShareForm(false); setSelectedEvent(null); }} labelledBy="share-title">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4">
+          <div className="bg-white rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] max-w-md w-full mx-4">
             <div className="p-6">
-              <h3 id="share-title" className="text-xl font-bold text-gray-800 mb-4">
+              <h3 id="share-title" className="text-xl font-bold text-ink mb-4">
                 📤 Partager &quot;{selectedEvent.name}&quot;
               </h3>
               
               <form onSubmit={handleShare} className="space-y-4">
                 <div>
-                  <label htmlFor="targetUsername" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="targetUsername" className="block text-sm font-medium text-ink mb-2">
                     Nom d&apos;utilisateur
                   </label>
                   <input
                     id="targetUsername"
                     type="text"
                     required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                    className="w-full px-4 py-3 border border-ink rounded-none focus:outline-none focus:ring-2 focus:ring-razzmatazz focus:border-ink text-ink"
                     placeholder="Pseudo de l'utilisateur"
                     value={shareData.targetUsername}
                     onChange={(e) => setShareData(prev => ({ ...prev, targetUsername: e.target.value }))}
@@ -500,9 +500,9 @@ export default function UserEvents({ userId }: UserEventsProps) {
                     id="canEdit"
                     checked={shareData.canEdit}
                     onChange={(e) => setShareData(prev => ({ ...prev, canEdit: e.target.checked }))}
-                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    className="w-4 h-4 text-razzmatazz border-ink rounded-none focus:ring-razzmatazz"
                   />
-                  <label htmlFor="canEdit" className="text-sm text-gray-700">
+                  <label htmlFor="canEdit" className="text-sm text-ink">
                     L&apos;utilisateur peut modifier la liste
                   </label>
                 </div>
@@ -510,7 +510,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
                 <div className="flex gap-3">
                   <button
                     type="submit"
-                    className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-300"
+                    className="flex-1 text-white px-4 py-2 rounded-none font-medium transition-all bg-razzmatazz hover:bg-ink border-[3px] border-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
                   >
                     📤 Partager
                   </button>
@@ -522,7 +522,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
                       setSelectedEvent(null);
                       setShareData({ targetUsername: '', canEdit: false });
                     }}
-                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-all duration-300"
+                    className="btn flex-1"
                   >
                     Annuler
                   </button>
@@ -536,22 +536,22 @@ export default function UserEvents({ userId }: UserEventsProps) {
       {/* Modal de création d'événement */}
       {showCreateForm && (
         <Modal open onClose={() => setShowCreateForm(false)} labelledBy="create-title">
-          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4">
+          <div className="bg-white rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] max-w-md w-full mx-4">
             <div className="p-6">
-              <h3 id="create-title" className="text-xl font-bold text-gray-800 mb-4">
+              <h3 id="create-title" className="text-xl font-bold text-ink mb-4">
                 ➕ Créer un nouvel événement
               </h3>
               
               <form onSubmit={handleCreateEvent} className="space-y-4">
                 <div>
-                  <label htmlFor="eventName" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="eventName" className="block text-sm font-medium text-ink mb-2">
                     Nom de l&apos;événement
                   </label>
                   <input
                     id="eventName"
                     type="text"
                     required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                    className="w-full px-4 py-3 border border-ink rounded-none focus:outline-none focus:ring-2 focus:ring-razzmatazz focus:border-ink text-ink"
                     placeholder="Ex: Anniversaire de Mimoutte"
                     value={createEventData.name}
                     onChange={(e) => setCreateEventData(prev => ({ ...prev, name: e.target.value }))}
@@ -559,12 +559,12 @@ export default function UserEvents({ userId }: UserEventsProps) {
                 </div>
                 
                 <div>
-                  <label htmlFor="eventType" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="eventType" className="block text-sm font-medium text-ink mb-2">
                     Type d&apos;événement
                   </label>
                   <select
                     id="eventType"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                    className="w-full px-4 py-3 border border-ink rounded-none focus:outline-none focus:ring-2 focus:ring-razzmatazz focus:border-ink text-ink"
                     value={createEventData.eventType}
                     onChange={(e) => setCreateEventData(prev => ({ ...prev, eventType: e.target.value }))}
                   >
@@ -582,22 +582,22 @@ export default function UserEvents({ userId }: UserEventsProps) {
                     id="hasTargetDate"
                     checked={createEventData.hasTargetDate}
                     onChange={(e) => setCreateEventData(prev => ({ ...prev, hasTargetDate: e.target.checked }))}
-                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    className="w-4 h-4 text-razzmatazz border-ink rounded-none focus:ring-razzmatazz"
                   />
-                  <label htmlFor="hasTargetDate" className="text-sm text-gray-700">
+                  <label htmlFor="hasTargetDate" className="text-sm text-ink">
                     Cet événement a une date cible
                   </label>
                 </div>
                 
                 {createEventData.hasTargetDate && (
                   <div>
-                    <label htmlFor="targetDate" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="targetDate" className="block text-sm font-medium text-ink mb-2">
                       Date cible
                     </label>
                     <input
                       id="targetDate"
                       type="date"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                      className="w-full px-4 py-3 border border-ink rounded-none focus:outline-none focus:ring-2 focus:ring-razzmatazz focus:border-ink text-ink"
                       value={createEventData.targetDate}
                       onChange={(e) => setCreateEventData(prev => ({ ...prev, targetDate: e.target.value }))}
                     />
@@ -610,9 +610,9 @@ export default function UserEvents({ userId }: UserEventsProps) {
                     id="isPrivate"
                     checked={createEventData.isPrivate}
                     onChange={(e) => setCreateEventData(prev => ({ ...prev, isPrivate: e.target.checked }))}
-                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    className="w-4 h-4 text-razzmatazz border-ink rounded-none focus:ring-razzmatazz"
                   />
-                  <label htmlFor="isPrivate" className="text-sm text-gray-700">
+                  <label htmlFor="isPrivate" className="text-sm text-ink">
                     Événement privé (nécessite mot de passe)
                   </label>
                 </div>
@@ -623,9 +623,9 @@ export default function UserEvents({ userId }: UserEventsProps) {
                     id="createHidePurchases"
                     checked={createEventData.hidePurchasesFromOwner}
                     onChange={(e) => setCreateEventData(prev => ({ ...prev, hidePurchasesFromOwner: e.target.checked }))}
-                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    className="w-4 h-4 text-razzmatazz border-ink rounded-none focus:ring-razzmatazz"
                   />
-                  <label htmlFor="createHidePurchases" className="text-sm text-gray-700">
+                  <label htmlFor="createHidePurchases" className="text-sm text-ink">
                     Cacher les achats au propriétaire (garde la surprise)
                   </label>
                 </div>
@@ -633,7 +633,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
                 <div className="flex gap-3">
                   <button
                     type="submit"
-                    className="flex-1 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-300"
+                    className="flex-1 text-white px-4 py-2 rounded-none font-medium transition-all bg-razzmatazz hover:bg-ink border-[3px] border-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
                   >
                     ➕ Créer l&apos;événement
                   </button>
@@ -651,7 +651,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
                         hidePurchasesFromOwner: true
                       });
                     }}
-                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-all duration-300"
+                    className="btn flex-1"
                   >
                     Annuler
                   </button>
@@ -665,20 +665,20 @@ export default function UserEvents({ userId }: UserEventsProps) {
       {/* Formulaire d'édition d'événement */}
       {showEditForm && editingEvent && (
         <Modal open onClose={cancelEdit} labelledBy="edit-title">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h3 id="edit-title" className="text-xl font-semibold text-gray-800 mb-4">✏️ Modifier l&apos;événement</h3>
+              <h3 id="edit-title" className="text-xl font-semibold text-ink mb-4">✏️ Modifier l&apos;événement</h3>
               
               <form onSubmit={handleUpdateEvent} className="space-y-4">
                 <div>
-                  <label htmlFor="editEventName" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="editEventName" className="block text-sm font-medium text-ink mb-2">
                     Nom de l&apos;événement
                   </label>
                   <input
                     id="editEventName"
                     type="text"
                     required
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                    className="w-full px-4 py-3 border border-ink rounded-none focus:outline-none focus:ring-2 focus:ring-razzmatazz focus:border-ink text-ink"
                     placeholder="Ex: Anniversaire de Mimoutte"
                     value={editEventData.name}
                     onChange={(e) => setEditEventData(prev => ({ ...prev, name: e.target.value }))}
@@ -686,12 +686,12 @@ export default function UserEvents({ userId }: UserEventsProps) {
                 </div>
                 
                 <div>
-                  <label htmlFor="editEventType" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="editEventType" className="block text-sm font-medium text-ink mb-2">
                     Type d&apos;événement
                   </label>
                   <select
                     id="editEventType"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                    className="w-full px-4 py-3 border border-ink rounded-none focus:outline-none focus:ring-2 focus:ring-razzmatazz focus:border-ink text-ink"
                     value={editEventData.eventType}
                     onChange={(e) => setEditEventData(prev => ({ ...prev, eventType: e.target.value }))}
                   >
@@ -709,22 +709,22 @@ export default function UserEvents({ userId }: UserEventsProps) {
                     id="editHasTargetDate"
                     checked={editEventData.hasTargetDate}
                     onChange={(e) => setEditEventData(prev => ({ ...prev, hasTargetDate: e.target.checked }))}
-                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    className="w-4 h-4 text-razzmatazz border-ink rounded-none focus:ring-razzmatazz"
                   />
-                  <label htmlFor="editHasTargetDate" className="text-sm text-gray-700">
+                  <label htmlFor="editHasTargetDate" className="text-sm text-ink">
                     Cet événement a une date cible
                   </label>
                 </div>
                 
                 {editEventData.hasTargetDate && (
                   <div>
-                    <label htmlFor="editTargetDate" className="block text-sm font-medium text-gray-700 mb-2">
+                    <label htmlFor="editTargetDate" className="block text-sm font-medium text-ink mb-2">
                       Date cible
                     </label>
                     <input
                       id="editTargetDate"
                       type="date"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900"
+                      className="w-full px-4 py-3 border border-ink rounded-none focus:outline-none focus:ring-2 focus:ring-razzmatazz focus:border-ink text-ink"
                       value={editEventData.targetDate}
                       onChange={(e) => setEditEventData(prev => ({ ...prev, targetDate: e.target.value }))}
                     />
@@ -737,9 +737,9 @@ export default function UserEvents({ userId }: UserEventsProps) {
                     id="editIsPrivate"
                     checked={editEventData.isPrivate}
                     onChange={(e) => setEditEventData(prev => ({ ...prev, isPrivate: e.target.checked }))}
-                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    className="w-4 h-4 text-razzmatazz border-ink rounded-none focus:ring-razzmatazz"
                   />
-                  <label htmlFor="editIsPrivate" className="text-sm text-gray-700">
+                  <label htmlFor="editIsPrivate" className="text-sm text-ink">
                     Événement privé (nécessite mot de passe)
                   </label>
                 </div>
@@ -750,9 +750,9 @@ export default function UserEvents({ userId }: UserEventsProps) {
                     id="editHidePurchases"
                     checked={editEventData.hidePurchasesFromOwner}
                     onChange={(e) => setEditEventData(prev => ({ ...prev, hidePurchasesFromOwner: e.target.checked }))}
-                    className="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500"
+                    className="w-4 h-4 text-razzmatazz border-ink rounded-none focus:ring-razzmatazz"
                   />
-                  <label htmlFor="editHidePurchases" className="text-sm text-gray-700">
+                  <label htmlFor="editHidePurchases" className="text-sm text-ink">
                     Cacher les achats au propriétaire (garde la surprise)
                   </label>
                 </div>
@@ -760,7 +760,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
                 <div className="flex gap-3">
                   <button
                     type="submit"
-                    className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-600 hover:from-yellow-600 hover:to-orange-700 text-white px-4 py-2 rounded-lg font-medium transition-all duration-300"
+                    className="flex-1 text-white px-4 py-2 rounded-none font-medium transition-all bg-razzmatazz hover:bg-ink border-[3px] border-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
                   >
                     ✏️ Modifier l&apos;événement
                   </button>
@@ -768,7 +768,7 @@ export default function UserEvents({ userId }: UserEventsProps) {
                   <button
                     type="button"
                     onClick={cancelEdit}
-                    className="flex-1 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium transition-all duration-300"
+                    className="btn flex-1"
                   >
                     Annuler
                   </button>

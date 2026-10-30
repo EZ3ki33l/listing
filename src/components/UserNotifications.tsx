@@ -77,7 +77,7 @@ export default function UserNotifications({ userId }: UserNotificationsProps) {
       case 'EVENT_SHARE':
         return <CheckCircle className="w-5 h-5 text-green-500" />;
       default:
-        return <Info className="w-5 h-5 text-blue-500" />;
+        return <Info className="w-5 h-5 text-razzmatazz" />;
     }
   };
 
@@ -88,7 +88,7 @@ export default function UserNotifications({ userId }: UserNotificationsProps) {
       case 'EVENT_SHARE':
         return 'border-green-200 bg-green-50';
       default:
-        return 'border-blue-200 bg-blue-50';
+        return 'border-ink bg-heliotrope/20';
     }
   };
 
@@ -110,10 +110,10 @@ export default function UserNotifications({ userId }: UserNotificationsProps) {
 
   if (isLoading) {
     return (
-      <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
+      <div className="bg-white rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] p-6">
         <div className="flex items-center justify-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-          <span className="ml-3 text-gray-600">Chargement des notifications...</span>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ink"></div>
+          <span className="ml-3 text-ink">Chargement des notifications...</span>
         </div>
       </div>
     );
@@ -121,26 +121,26 @@ export default function UserNotifications({ userId }: UserNotificationsProps) {
 
   if (notifications.length === 0) {
     return (
-      <div className="bg-white rounded-xl shadow-lg border border-gray-100 p-6">
+      <div className="bg-white rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] p-6">
         <div className="text-center">
-          <Bell className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-          <h3 className="text-lg font-semibold text-gray-800 mb-2">Aucune notification</h3>
-          <p className="text-gray-600">Vous n&apos;avez pas encore reçu de notifications</p>
+          <Bell className="w-12 h-12 text-ink/60 mx-auto mb-3" />
+          <h3 className="text-lg font-semibold text-ink mb-2">Aucune notification</h3>
+          <p className="text-ink">Vous n&apos;avez pas encore reçu de notifications</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="w-full block bg-white rounded-xl shadow-lg border border-gray-100 p-6 relative z-0">
+    <div className="w-full block bg-white rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] p-6 relative z-0">
       {/* Header avec bouton de réduction */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-3">
-          <Bell className="w-6 h-6 text-indigo-600" />
-          <h3 className="text-xl font-semibold text-gray-800">
+          <Bell className="w-6 h-6 text-razzmatazz" />
+          <h3 className="text-xl font-semibold text-ink">
             Notifications
             {unreadCount > 0 && (
-              <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+              <span className="btn btn-pink ml-2">
                 {unreadCount}
               </span>
             )}
@@ -151,7 +151,7 @@ export default function UserNotifications({ userId }: UserNotificationsProps) {
           {notifications.length > 5 && (
             <button
               onClick={() => setShowAll(!showAll)}
-              className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+              className="text-sm text-razzmatazz hover:text-razzmatazz font-medium"
             >
               {showAll ? 'Voir moins' : `Voir toutes (${notifications.length})`}
             </button>
@@ -159,13 +159,13 @@ export default function UserNotifications({ userId }: UserNotificationsProps) {
           
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            className="p-2 rounded-none hover:bg-heliotrope/20 transition-colors"
             title={isCollapsed ? 'Développer' : 'Réduire'}
           >
             {isCollapsed ? (
-              <ChevronDown className="w-5 h-5 text-gray-600" />
+              <ChevronDown className="w-5 h-5 text-ink" />
             ) : (
-              <ChevronUp className="w-5 h-5 text-gray-600" />
+              <ChevronUp className="w-5 h-5 text-ink" />
             )}
           </button>
         </div>
@@ -179,10 +179,10 @@ export default function UserNotifications({ userId }: UserNotificationsProps) {
             {displayedNotifications.map((notification) => (
               <div
                 key={notification.id}
-                className={`p-4 rounded-lg border-2 transition-all duration-200 ${
+                className={`p-4 rounded-none border-2 transition-all duration-200 ${
                   notification.isRead 
                     ? 'opacity-60' 
-                    : 'opacity-100 shadow-sm'
+                    : 'opacity-100 border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a]'
                 } ${getNotificationColor(notification.type)}`}
               >
                 <div className="flex items-start space-x-3">
@@ -194,16 +194,16 @@ export default function UserNotifications({ userId }: UserNotificationsProps) {
                     <div className="flex items-start justify-between">
                       <div>
                         <h4 className={`text-sm font-semibold mb-1 ${
-                          notification.isRead ? 'text-gray-600' : 'text-gray-800'
+                          notification.isRead ? 'text-ink' : 'text-ink'
                         }`}>
                           {notification.title}
                         </h4>
                         <p className={`text-sm ${
-                          notification.isRead ? 'text-gray-500' : 'text-gray-700'
+                          notification.isRead ? 'text-ink/60' : 'text-ink'
                         }`}>
                           {notification.message}
                         </p>
-                        <p className="text-xs text-gray-400 mt-2">
+                        <p className="text-xs text-ink/60 mt-2">
                           {formatDate(notification.createdAt)}
                         </p>
                       </div>
@@ -212,7 +212,7 @@ export default function UserNotifications({ userId }: UserNotificationsProps) {
                         {!notification.isRead && (
                           <button
                             onClick={() => handleMarkAsRead(notification.id)}
-                            className="flex-shrink-0 p-1 rounded-full hover:bg-white/50 transition-colors"
+                            className="flex-shrink-0 p-1 rounded-none hover:bg-white/50 transition-colors"
                             title="Marquer comme lue"
                           >
                             <Check className="w-4 h-4 text-green-600" />
@@ -220,7 +220,7 @@ export default function UserNotifications({ userId }: UserNotificationsProps) {
                         )}
                         <button
                           onClick={() => handleDeleteNotification(notification.id)}
-                          className="flex-shrink-0 p-1 rounded-full hover:bg-white/50 transition-colors text-red-600"
+                          className="flex-shrink-0 p-1 rounded-none hover:bg-white/50 transition-colors text-red-600"
                           title="Supprimer la notification"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -246,7 +246,7 @@ export default function UserNotifications({ userId }: UserNotificationsProps) {
                     prev.map(n => ({ ...n, isRead: true }))
                   );
                 }}
-                className="inline-flex items-center px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium rounded-lg transition-colors"
+                className="btn"
               >
                 <Check className="w-4 h-4 mr-2" />
                 Marquer toutes comme lues
