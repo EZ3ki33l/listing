@@ -4,20 +4,17 @@
 // Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
-generator client {
-  provider = "prisma-client-js"
-}
-
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model User {
   id        String   @id @default(cuid())
   username  String   @unique // Pseudo unique de l'utilisateur
-  password  String   // Hash du mot de passe (bcrypt)
-  email     String?  @unique // Email optionnel
+  password  String?  // Ancien hash bcrypt, vidé après migration vers Neon Auth
+  authId    String?  @unique // Id de l'utilisateur dans Neon Auth (neon_auth.user)
+  email     String?  @unique // Email de l'utilisateur (obligatoire à l'inscription, absent des anciens comptes)
+  authEmail String?  @unique // Adresse de connexion Neon Auth ; null = ancienne adresse dérivée du pseudo (voir emailAuth.ts)
   isAdmin   Boolean  @default(false) // Indique si l'utilisateur est administrateur
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -37,6 +34,7 @@ model Event {
   isPrivate   Boolean  @default(false) // Indique si l'événement est privé (nécessite mot de passe)
   isActive    Boolean  @default(true)
   isHidden    Boolean  @default(false) // Indique si l'événement est masqué (invisible sur la page d'accueil)
+  hidePurchasesFromOwner Boolean @default(true) // Cache au propriétaire qui a acheté quoi (garde la surprise)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   
@@ -116,4 +114,13 @@ model Notification {
   
   // Relations
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// Compteur de limitation de débit (tentatives de connexion, d'inscription, de partage)
+model RateLimitHit {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
 }

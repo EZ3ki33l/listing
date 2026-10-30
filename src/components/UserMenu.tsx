@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, LogOut, Settings } from 'lucide-react';
 import Link from 'next/link';
+import { logoutUser } from '@/lib/actions';
 
 interface UserMenuProps {
   userId: string;
@@ -46,7 +47,8 @@ export default function UserMenu({ userId }: UserMenuProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await logoutUser();
     localStorage.removeItem('user');
     
     // Déclencher un événement personnalisé pour notifier la déconnexion

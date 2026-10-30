@@ -6,29 +6,35 @@
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "eslint src",
+    "test": "vitest run",
+    "seed": "node --env-file=.env prisma/seed.mjs",
+    "contract:emit": "prisma contract emit"
   },
   "dependencies": {
-    "@neondatabase/serverless": "^1.0.1",
-    "@prisma/client": "^6.14.0",
-    "@types/bcryptjs": "^2.4.6",
+    "@neondatabase/auth": "^0.7.0-beta",
+    "@prisma/orm-postgres": "^8.0.0-rc.21",
     "bcryptjs": "^3.0.2",
     "date-fns": "^4.1.0",
+    "dotenv": "^18.0.9",
     "lucide-react": "^0.540.0",
-    "next": "^15.5.9",
+    "next": "^16.4.3",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
+    "@prisma/cli-engine": "^0.9.0",
+    "@prisma/prisma7": "^7.10.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "15.4.7",
-    "prisma": "^6.14.0",
+    "eslint-config-next": "^16.4.3",
+    "prisma": "^8.0.0-rc.28",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^3.2.7"
   }
 }

@@ -92,7 +92,7 @@ export default function ThankYouModal({ isOpen, onClose }: ThankYouModalProps) {
               </div>
               <button
                 onClick={onClose}
-                className="absolute right-0 rounded-full bg-white bg-opacity-20 text-white hover:bg-opacity-30 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-green-500 transition-all"
+                className="absolute right-0 rounded-full bg-white/20 text-white hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white focus:ring-offset-2 focus:ring-offset-green-500 transition-all"
               >
                 <X className="w-6 h-6" />
               </button>

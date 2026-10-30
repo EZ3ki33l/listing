@@ -216,15 +216,15 @@ export default function EventCountdown({
       {finalHasTargetDate && finalTargetDate ? (
         <>
           <div className="grid grid-cols-3 gap-6 mb-8">
-            <div className="bg-white bg-opacity-20 rounded-xl p-4">
+            <div className="bg-white/20 rounded-xl p-4">
               <div className="text-4xl font-bold">{timeLeft.days}</div>
               <div className="text-lg">Jours</div>
             </div>
-            <div className="bg-white bg-opacity-20 rounded-xl p-4">
+            <div className="bg-white/20 rounded-xl p-4">
               <div className="text-4xl font-bold">{timeLeft.hours}</div>
               <div className="text-lg">Heures</div>
             </div>
-            <div className="bg-white bg-opacity-20 rounded-xl p-3">
+            <div className="bg-white/20 rounded-xl p-3">
               <div className="text-4xl font-bold">{timeLeft.minutes}</div>
               <div className="text-lg">Minutes</div>
             </div>

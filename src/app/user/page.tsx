@@ -6,6 +6,7 @@ import UserAuth from '@/components/UserAuth';
 import UserNotifications from '@/components/UserNotifications';
 import UserMenu from '@/components/UserMenu';
 import Link from 'next/link';
+import { getCurrentUser } from '@/lib/actions';
 
 interface User {
   id: string;
@@ -20,18 +21,20 @@ export default function UserPage() {
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    // Vérifier si l'utilisateur est connecté (stocké dans localStorage)
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error('Erreur lors de la lecture des données utilisateur:', error);
+    // La session serveur fait foi : le localStorage ne sert qu'à l'affichage
+    getCurrentUser().then(sessionUser => {
+      const storedUser = localStorage.getItem('user');
+      if (sessionUser && storedUser) {
+        try {
+          setUser(JSON.parse(storedUser));
+        } catch {
+          localStorage.removeItem('user');
+        }
+      } else {
         localStorage.removeItem('user');
       }
-    }
-    // Marquer l'initialisation comme terminée
-    setIsInitializing(false);
+      setIsInitializing(false);
+    });
   }, []);
 
   const handleLogin = (userData: User) => {

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { initializeDefaultCategories } from '@/lib/actions';
+import { useFeedback } from './Feedback';
 
 interface DefaultCategoriesInitializerProps {
   onCategoriesCreated: () => void;
@@ -13,26 +14,30 @@ export default function DefaultCategoriesInitializer({
   hasExistingCategories 
 }: DefaultCategoriesInitializerProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const [message, setMessage] = useState('');
+  const { notify, confirm } = useFeedback();
 
   const handleInitialize = async () => {
-    if (!confirm('Voulez-vous créer les catégories par défaut ? Cette action ne peut être effectuée qu\'une seule fois sur une base vide.')) return;
+    const ok = await confirm({
+      title: 'Créer les catégories par défaut',
+      message: "Voulez-vous créer les catégories par défaut ? Cette action ne peut être effectuée qu'une seule fois sur une base vide.",
+      confirmText: 'Créer',
+      type: 'info'
+    });
+    if (!ok) return;
 
     setIsLoading(true);
-    setMessage('');
-    
+
     try {
       const result = await initializeDefaultCategories();
       if (result.success) {
-        setMessage(result.message || '✅ Catégories par défaut créées avec succès !');
+        notify('success', 'Catégories créées', result.message || 'Catégories par défaut créées avec succès !');
         onCategoriesCreated();
-        // Effacer le message après 5 secondes
-        setTimeout(() => setMessage(''), 5000);
       } else {
-        setMessage(`❌ Erreur: ${result.error}`);
+        notify('error', 'Erreur', result.error);
       }
     } catch (error) {
-      setMessage(`❌ Erreur lors de l'initialisation des catégories: ${error}`);
+      console.error("Erreur lors de l'initialisation des catégories:", error);
+      notify('error', 'Erreur', "Erreur lors de l'initialisation des catégories");
     } finally {
       setIsLoading(false);
     }
@@ -54,16 +59,6 @@ export default function DefaultCategoriesInitializer({
             gaming & loisirs, sport & fitness, bijoux & accessoires, santé & bien-être, bricolage & jardinage, 
             alimentation & boissons, décoration & art, outils & équipements, mode & accessoires et loisirs & hobbies.
           </p>
-          
-          {message && (
-            <div className={`px-3 py-2 rounded-lg text-sm mb-3 ${
-              message.includes('✅') 
-                ? 'bg-green-100 border border-green-200 text-green-700' 
-                : 'bg-red-100 border border-red-200 text-red-700'
-            }`}>
-              {message}
-            </div>
-          )}
           
           <button
             onClick={handleInitialize}

@@ -8,6 +8,7 @@ import CategoryFilter from '@/components/CategoryFilter';
 import SearchBar from '@/components/SearchBar';
 import ImageCarousel from '@/components/ImageCarousel';
 import ThankYouModal from '@/components/ThankYouModal';
+import { useFeedback } from '@/components/Feedback';
 
 interface Event {
   id: string;
@@ -17,6 +18,7 @@ interface Event {
   hasTargetDate: boolean;
   isPrivate: boolean;
   isActive: boolean;
+  purchasesHidden?: boolean; // propriétaire dont les achats sont cachés : ni bouton d'achat ni « Acheté par »
   isOwned?: boolean;
   canEdit?: boolean;
   owner: {
@@ -59,11 +61,11 @@ interface Category {
 function ListePageContent() {
   const searchParams = useSearchParams();
   const eventId = searchParams.get('event');
+  const { notify, confirm } = useFeedback();
   
   const [event, setEvent] = useState<Event | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [message, setMessage] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string } | null>(null);
   const [showThankYouModal, setShowThankYouModal] = useState(false);
@@ -86,14 +88,14 @@ function ListePageContent() {
     try {
       setIsLoading(true);
       const [eventResult, categoriesResult] = await Promise.all([
-        getEvent(eventId, currentUser.id),
+        getEvent(eventId),
         getCategories()
       ]);
 
       if (eventResult.success && eventResult.event) {
         setEvent(eventResult.event);
       } else {
-        setMessage(`❌ ${eventResult.error || 'Erreur lors du chargement de l\'événement'}`);
+        notify('error', 'Erreur', eventResult.error || "Erreur lors du chargement de l'événement");
       }
 
       if (categoriesResult.success && categoriesResult.categories) {
@@ -101,11 +103,11 @@ function ListePageContent() {
       }
     } catch (error) {
       console.error('Erreur lors du chargement des données:', error);
-      setMessage('❌ Erreur lors du chargement de l\'événement');
+      notify('error', 'Erreur', "Erreur lors du chargement de l'événement");
     } finally {
       setIsLoading(false);
     }
-  }, [eventId, currentUser]);
+  }, [eventId, currentUser, notify]);
 
   useEffect(() => {
     // Vérifier si l'utilisateur est connecté
@@ -147,17 +149,16 @@ function ListePageContent() {
     
     // Vérifier les permissions
     if (!canAddItems()) {
-      setMessage('❌ Vous n\'avez pas la permission d\'ajouter des articles à cette liste');
+      notify('error', 'Permission refusée', "Vous n'avez pas la permission d'ajouter des articles à cette liste");
       return;
     }
     
     if (!eventId || !newItem.name.trim()) {
-      setMessage('❌ Veuillez remplir le nom de l\'article');
+      notify('error', 'Champ requis', "Veuillez remplir le nom de l'article");
       return;
     }
 
     setIsLoading(true);
-    setMessage('');
     
     try {
       const result = await createShoppingItem({
@@ -171,15 +172,16 @@ function ListePageContent() {
       });
 
       if (result.success) {
-        setMessage('✅ Article ajouté avec succès !');
+        notify('success', 'Article ajouté', 'L\'article a été ajouté avec succès.');
         setNewItem({ name: '', description: '', price: '', purchaseUrl: '', categoryId: '', photos: [{ imageUrl: '', altText: '' }] });
         setShowAddForm(false);
         await loadEventData();
       } else {
-        setMessage(`❌ Erreur: ${result.error}`);
+        notify('error', 'Erreur', result.error);
       }
     } catch (error) {
-      setMessage(`❌ Erreur lors de l'ajout de l'article: ${error}`);
+      console.error("Erreur lors de l'ajout de l'article:", error);
+      notify('error', 'Erreur', "Erreur lors de l'ajout de l'article");
     } finally {
       setIsLoading(false);
     }
@@ -189,38 +191,46 @@ function ListePageContent() {
     try {
       const result = await updateItemStatus({
         itemId,
-        isPurchased,
-        purchasedBy: 'Utilisateur'
+        isPurchased
       });
 
-      if (result.success) {
-        await loadEventData();
-        // Afficher la modal de remerciement seulement pour les événements d'anniversaire
-        if (isPurchased && event?.eventType === 'anniversaire') {
-          setShowThankYouModal(true);
-        }
+      if (!result.success) notify('error', 'Erreur', result.error);
+      await loadEventData();
+      // Afficher la modal de remerciement seulement pour les événements d'anniversaire
+      if (result.success && isPurchased && event?.eventType === 'anniversaire') {
+        setShowThankYouModal(true);
       }
     } catch (error) {
       console.error('Erreur lors de la mise à jour du statut:', error);
+      notify('error', 'Erreur', 'Impossible de mettre à jour le statut de l\'article');
     }
   };
 
   const handleDeleteItem = async (itemId: string) => {
     // Vérifier les permissions
     if (!canDeleteItems()) {
-      setMessage('❌ Vous n\'avez pas la permission de supprimer des articles de cette liste');
+      notify('error', 'Permission refusée', "Vous n'avez pas la permission de supprimer des articles de cette liste");
       return;
     }
     
-    if (!confirm('Êtes-vous sûr de vouloir supprimer cet article ?')) return;
+    const ok = await confirm({
+      title: "Supprimer l'article",
+      message: 'Êtes-vous sûr de vouloir supprimer cet article ?',
+      confirmText: 'Supprimer',
+      type: 'danger'
+    });
+    if (!ok) return;
 
     try {
       const result = await deleteShoppingItem(itemId);
       if (result.success) {
         await loadEventData();
+      } else {
+        notify('error', 'Erreur', result.error);
       }
     } catch (error) {
       console.error('Erreur lors de la suppression:', error);
+      notify('error', 'Erreur', "Erreur lors de la suppression de l'article");
     }
   };
 
@@ -383,16 +393,6 @@ function ListePageContent() {
       </header>
 
       <main className="max-w-6xl mx-auto p-6">
-        {message && (
-          <div className={`px-4 py-3 rounded-xl text-center mb-6 ${
-            message.includes('✅') 
-              ? 'bg-green-100 border border-green-200 text-green-700' 
-              : 'bg-red-100 border border-red-200 text-red-700'
-          }`}>
-            {message}
-          </div>
-        )}
-
         {/* Filtres et recherche */}
         <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
           <div className="space-y-6">
@@ -634,12 +634,14 @@ function ListePageContent() {
                     {/* Boutons d'action */}
                     <div className="flex gap-2 pt-2 mt-auto">
                       {/* Bouton Acheté */}
-                      <button
-                        onClick={() => handleToggleItem(item.id, true)}
-                        className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        ✅ Acheté
-                      </button>
+                      {!event.purchasesHidden && (
+                        <button
+                          onClick={() => handleToggleItem(item.id, true)}
+                          className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          ✅ Acheté
+                        </button>
+                      )}
                       
                       {/* Bouton Acheter */}
                       {item.purchaseUrl && (
@@ -716,9 +718,11 @@ function ListePageContent() {
                       <p className="text-sm text-gray-600 line-through">{item.description}</p>
                     )}
                     
-                    <p className="text-sm text-green-600">
-                      ✅ Acheté par {item.purchasedBy} le {item.purchasedAt ? new Date(item.purchasedAt).toLocaleDateString('fr-FR') : 'récemment'}
-                    </p>
+                    {!event.purchasesHidden && (
+                      <p className="text-sm text-green-600">
+                        ✅ Acheté par {item.purchasedBy} le {item.purchasedAt ? new Date(item.purchasedAt).toLocaleDateString('fr-FR') : 'récemment'}
+                      </p>
+                    )}
                     
                     {/* Spacer pour pousser les boutons en bas */}
                     <div className="flex-grow"></div>
@@ -741,12 +745,14 @@ function ListePageContent() {
                       )}
                       
                       {/* Bouton Annuler achat */}
-                      <button
-                        onClick={() => handleToggleItem(item.id, false)}
-                        className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                      >
-                        🔄 Annuler
-                      </button>
+                      {!event.purchasesHidden && (
+                        <button
+                          onClick={() => handleToggleItem(item.id, false)}
+                          className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          🔄 Annuler
+                        </button>
+                      )}
                       
                       {/* Bouton Supprimer */}
                       {canDeleteItems() && (
