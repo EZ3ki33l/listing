@@ -1,43 +1,219 @@
 @import "tailwindcss";
 
+/*
+ * Identité visuelle : néo-brutalisme coloré.
+ * Palette : vert malachite / razzmatazz / héliotrope sur noir et blanc,
+ * bordures noires épaisses, ombres dures décalées, libellés en mono capitales.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --malachite: #31ec56;
+  --razzmatazz: #ef036c;
+  --heliotrope: #ee72f8;
+  --ink: #0a0a0a;
+  --paper: #ffffff;
+
+  --background: var(--paper);
+  --foreground: var(--ink);
+
+  --border-w: 3px;
+  --shadow-offset: 6px;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-malachite: var(--malachite);
+  --color-razzmatazz: var(--razzmatazz);
+  --color-heliotrope: var(--heliotrope);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --font-sans: var(--font-body);
+  --font-mono: var(--font-label);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  scroll-behavior: smooth;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "Apostrophe", var(--font-body), system-ui, sans-serif;
+  font-weight: 500;
 }
 
-/* Styles personnalisés pour améliorer la visibilité des placeholders */
+/* Fond « motif » : bandes malachite comme dans la référence */
+.bg-stripes {
+  background-color: var(--malachite);
+  background-image: repeating-radial-gradient(
+    circle at 85% 20%,
+    rgb(255 255 255 / 0.18) 0 60px,
+    transparent 60px 120px
+  );
+}
+
+/* Carte : bordure noire + ombre dure */
+.brut {
+  background: var(--paper);
+  color: var(--ink);
+  border: var(--border-w) solid var(--ink);
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--ink);
+}
+
+.brut-shadow-pink {
+  box-shadow: var(--shadow-offset) var(--shadow-offset) 0 var(--razzmatazz);
+}
+
+/* Bouton : s'enfonce dans son ombre au survol */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-body), sans-serif;
+  font-weight: 700;
+  font-synthesis: none;
+  -webkit-text-stroke: 0.03em currentColor;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--paper);
+  background: var(--ink);
+  border: var(--border-w) solid var(--ink);
+  box-shadow: 5px 5px 0 var(--malachite);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  cursor: pointer;
+}
+
+.btn:hover,
+.btn:focus-visible {
+  transform: translate(3px, 3px);
+  box-shadow: 2px 2px 0 var(--malachite);
+}
+
+.btn-pink {
+  background: var(--razzmatazz);
+  box-shadow: 5px 5px 0 var(--ink);
+}
+
+.btn-pink:hover,
+.btn-pink:focus-visible {
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
+/* Libellé technique en mono capitales */
+.label {
+  display: inline-block;
+  padding: 0.25rem 0.6rem;
+  font-family: var(--font-label), monospace;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--paper);
+  background: var(--ink);
+}
+
+/* Titres : Coves Bold (Arkhip n'a pas les accents français) */
+h1,
+.display,
+h2,
+h3,
+h4 {
+  font-family: var(--font-body), sans-serif;
+  font-weight: 700;
+  font-synthesis: none;
+  /* Coves Bold est fin : un contour de la couleur du texte lui donne du poids */
+  -webkit-text-stroke: 0.045em currentColor;
+  letter-spacing: 0.01em;
+}
+
+:focus-visible {
+  outline: 3px solid var(--razzmatazz);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .btn {
+    transition: none;
+  }
+}
+
+/* Slider Smooothy : seuls les slides sont enfants directs, sans gap */
+.slider {
+  display: flex;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: pan-y;
+  user-select: none;
+}
+
+.slider:active {
+  cursor: grabbing;
+}
+
+.slider > * {
+  flex-shrink: 0;
+  width: 85vw;
+  padding: 0 0.75rem 1rem;
+}
+
+@media (min-width: 768px) {
+  .slider > * {
+    width: 45vw;
+  }
+}
+
+@media (min-width: 1280px) {
+  .slider > * {
+    width: 28vw;
+  }
+}
+
+/* Coves rend l'apostrophe droite quasi invisible : on la prend dans une police système */
+@font-face {
+  font-family: "Apostrophe";
+  src: local("Arial"), local("Helvetica Neue"), local("Helvetica"), local("Liberation Sans"), local("DejaVu Sans");
+  unicode-range: U+0027, U+2019;
+}
+
+/* Slider d'articles : 1 / 2 / 3 slides visibles, marges internes neutralisées */
+.slider-3 {
+  margin-inline: -0.75rem;
+}
+
+.slider-3 > * {
+  width: 100%;
+  padding: 0 0.75rem 1rem;
+}
+
+@media (min-width: 640px) {
+  .slider-3 > * {
+    width: 50%;
+  }
+}
+
+@media (min-width: 1024px) {
+  .slider-3 > * {
+    width: 33.3333%;
+  }
+}
+
+/* Champs de formulaire */
 input::placeholder {
-  color: #4B5563 !important; /* gray-600 */
+  color: #4b5563 !important;
   font-weight: 500 !important;
   opacity: 1 !important;
 }
 
 input:focus::placeholder {
-  color: #6B7280 !important; /* gray-500 */
+  color: #6b7280 !important;
   opacity: 0.8 !important;
 }
 
-/* Amélioration de la visibilité des champs de formulaire */
 input[type="text"],
 input[type="password"],
 input[type="email"],
@@ -46,21 +222,60 @@ input[type="search"],
 input[type="tel"],
 input[type="url"] {
   background-color: #ffffff !important;
-  color: #111827 !important; /* gray-900 */
+  color: var(--ink) !important;
+  border: 2px solid var(--ink) !important;
+  border-radius: 0 !important;
 }
 
-/* Style spécial pour les champs de couleur */
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+input[type="number"]:focus,
+input[type="search"]:focus,
+input[type="tel"]:focus,
+input[type="url"]:focus {
+  box-shadow: 4px 4px 0 var(--malachite) !important;
+}
+
 input[type="color"] {
   background-color: #ffffff !important;
-  border: 2px solid #D1D5DB !important; /* gray-300 */
+  border: 2px solid var(--ink) !important;
   cursor: pointer;
 }
 
-input[type="color"]:hover {
-  border-color: #9CA3AF !important; /* gray-400 */
+select {
+  background-color: var(--paper) !important;
+  color: var(--ink) !important;
+  border: 2px solid var(--ink) !important;
+  border-radius: 0 !important;
+  font-family: inherit;
+  font-weight: 700;
+  cursor: pointer;
 }
 
-input[type="color"]:focus {
-  border-color: #3B82F6 !important; /* blue-500 */
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+select:focus {
+  outline: none;
+  box-shadow: 4px 4px 0 var(--malachite);
+}
+
+select option:checked {
+  background: var(--malachite);
+  color: var(--ink);
+}
+
+/* Bandeau défilant de la page d'entrée */
+@keyframes marquee {
+  to {
+    transform: translateX(-25%);
+  }
+}
+
+.marquee {
+  animation: marquee 18s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee {
+    animation: none;
+  }
 }

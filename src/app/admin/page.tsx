@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { PageLoader, SiteHeader, PageHero } from '@/components/PageChrome';
 import Link from 'next/link';
 import { authenticateUser, getCurrentUser, logoutUser, createCategory, updateCategory, deleteCategory, getCategoriesWithItemCount } from '@/lib/actions';
 import DefaultCategoriesInitializer from '@/components/DefaultCategoriesInitializer';
@@ -195,27 +196,22 @@ export default function AdminPage() {
   // Afficher un loader pendant l'initialisation
   if (isInitializing) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Vérification de la session...</p>
-        </div>
-      </div>
+      <PageLoader message="Vérification de la session…" />
     );
   }
 
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50 flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-dvh flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 bg-stripes">
         <div className="max-w-md w-full space-y-8">
           <div className="text-center">
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">🔐 Administration</h1>
-            <p className="text-gray-600">
+            <h1 className="text-3xl font-bold text-ink mb-2">🔐 Administration</h1>
+            <p className="text-ink">
               Accès réservé aux administrateurs
             </p>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl shadow-lg border border-gray-200">
+          <div className="bg-white p-6 rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a]">
             <form onSubmit={(e) => { 
               e.preventDefault(); 
               const formData = new FormData(e.currentTarget);
@@ -224,7 +220,7 @@ export default function AdminPage() {
               handleLogin(username, password);
             }} className="space-y-6">
               <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="username" className="block text-sm font-medium text-ink mb-2">
                   Nom d&apos;utilisateur
                 </label>
                 <input
@@ -233,12 +229,12 @@ export default function AdminPage() {
                   type="text"
                   autoComplete="username"
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder:text-gray-600 placeholder:font-medium bg-white transition-all duration-200"
+                  className="w-full px-4 py-3 border border-ink rounded-none focus:outline-none focus:ring-2 focus:ring-razzmatazz focus:border-ink text-ink placeholder:text-ink placeholder:font-medium bg-white transition-all duration-200"
                   placeholder="admin"
                 />
               </div>
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="password" className="block text-sm font-medium text-ink mb-2">
                   Mot de passe
                 </label>
                 <input
@@ -247,13 +243,13 @@ export default function AdminPage() {
                   type="password"
                   autoComplete="current-password"
                   required
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder:text-gray-600 placeholder:font-medium bg-white transition-all duration-200"
+                  className="w-full px-4 py-3 border border-ink rounded-none focus:outline-none focus:ring-2 focus:ring-razzmatazz focus:border-ink text-ink placeholder:text-ink placeholder:font-medium bg-white transition-all duration-200"
                   placeholder="Mot de passe"
                 />
               </div>
 
               {error && (
-                <div className="bg-red-100 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm text-center">
+                <div className="bg-red-100 border border-red-200 text-red-700 px-4 py-3 rounded-none text-sm text-center">
                   ❌ {error}
                 </div>
               )}
@@ -262,7 +258,7 @@ export default function AdminPage() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="w-full inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium disabled:transform-none disabled:cursor-not-allowed"
+                  className="w-full inline-block text-white py-3 px-6 rounded-none transition-all border-[3px] border-ink  font-medium disabled:transform-none disabled:cursor-not-allowed bg-razzmatazz hover:bg-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a] disabled:opacity-50"
                 >
                   {isLoading ? '⏳ Connexion...' : '🚀 Se connecter'}
                 </button>
@@ -272,7 +268,7 @@ export default function AdminPage() {
             <div className="text-center mt-6">
               <Link
                 href="/"
-                className="text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
+                className="text-razzmatazz hover:text-razzmatazz font-medium transition-colors"
               >
                 ← Retour à l&apos;accueil
               </Link>
@@ -284,51 +280,36 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50">
-      <header className="bg-white/30 backdrop-blur-sm border-b border-gray-200/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-700">
-                ⚙️ Administration
-              </h1>
-              {adminData && (
-                <p className="text-sm text-gray-600 mt-1">
-                  Connecté en tant que <span className="font-medium text-indigo-600">{adminData.username}</span>
-                </p>
-              )}
-            </div>
-            <div className="flex space-x-4">
-              <Link
-                href="/"
-                className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
-              >
-                ← Retour
-              </Link>
-              <button
-                onClick={async () => {
-                  await logoutUser();
-                  localStorage.removeItem('user');
-                  setIsLoggedIn(false);
-                  setAdminData(null);
-                }}
-                className="inline-block bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white px-4 py-2 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
-              >
-                🚪 Déconnexion
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-dvh bg-paper">
+      <SiteHeader>
+        <Link href="/" className="btn btn-pink">← Retour</Link>
+        <button
+          onClick={async () => {
+            await logoutUser();
+            localStorage.removeItem('user');
+            setIsLoggedIn(false);
+            setAdminData(null);
+          }}
+          className="btn"
+        >
+          Déconnexion
+        </button>
+      </SiteHeader>
+
+      <PageHero kicker="Administration" title="⚙️ Catégories">
+        {adminData && (
+          <p className="label !bg-paper !text-ink border-2 border-ink">Connecté en tant que {adminData.username}</p>
+        )}
+      </PageHero>
 
       <main className="max-w-6xl mx-auto p-6">
         {/* Gestion des catégories */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
+        <div className="bg-white rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] p-6 mb-6">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-800">🏷️ Gestion des catégories</h2>
+            <h2 className="text-2xl uppercase">🏷️ Gestion des catégories</h2>
             <button
               onClick={() => setShowCategoryForm(!showCategoryForm)}
-              className="inline-block bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-4 py-2 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl text-sm font-medium"
+              className="inline-block text-white px-4 py-2 rounded-none transition-all border-[3px] border-ink  text-sm font-medium bg-razzmatazz hover:bg-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
             >
               ➕ Nouvelle catégorie
             </button>
@@ -336,12 +317,12 @@ export default function AdminPage() {
 
           {/* Message informatif */}
           {categories.length === 0 && (
-            <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <div className="mb-6 p-4 bg-heliotrope/20 rounded-none border border-ink">
               <div className="flex items-start gap-3">
-                <div className="text-blue-600 text-xl">💡</div>
+                <div className="text-razzmatazz text-xl">💡</div>
                 <div>
-                  <h4 className="font-medium text-blue-800 mb-1">Aucune catégorie existante</h4>
-                  <p className="text-blue-700 text-sm">
+                  <h4 className="font-medium text-razzmatazz mb-1">Aucune catégorie existante</h4>
+                  <p className="text-razzmatazz text-sm">
                     Vous pouvez créer des catégories manuellement ou utiliser l&apos;outil d&apos;initialisation 
                     pour créer automatiquement 15 catégories prédéfinies (vêtements & chaussures, électronique & tech, livres & médias, etc.).
                   </p>
@@ -358,34 +339,34 @@ export default function AdminPage() {
 
           {/* Formulaire de création de catégorie */}
           {showCategoryForm && (
-            <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <h3 className="text-lg font-medium text-gray-800 mb-4">✨ Créer une nouvelle catégorie</h3>
+            <div className="mb-6 p-4 bg-heliotrope/20 rounded-none">
+              <h3 className="text-lg font-medium text-ink mb-4">✨ Créer une nouvelle catégorie</h3>
               <form onSubmit={handleCreateCategory} className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <input
                   type="text"
                   placeholder="Nom de la catégorie"
                   value={newCategory.name}
                   onChange={(e) => setNewCategory(prev => ({ ...prev, name: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 placeholder:text-gray-600 placeholder:font-medium bg-white"
+                  className="border border-ink rounded-none px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 placeholder:text-ink placeholder:font-medium bg-white"
                   required
                 />
                 <input
                   type="color"
                   value={newCategory.color}
                   onChange={(e) => setNewCategory(prev => ({ ...prev, color: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
+                  className="border border-ink rounded-none px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 bg-white"
                 />
                 <input
                   type="text"
                   placeholder="Icône (optionnel)"
                   value={newCategory.icon}
                   onChange={(e) => setNewCategory(prev => ({ ...prev, icon: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 placeholder:text-gray-600 placeholder:font-medium bg-white"
+                  className="border border-ink rounded-none px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500 placeholder:text-ink placeholder:font-medium bg-white"
                 />
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium"
+                  className="btn disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? 'Création...' : 'Créer'}
                 </button>
@@ -396,16 +377,16 @@ export default function AdminPage() {
           {/* Liste des catégories */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {categories.map((category) => (
-              <div key={category.id} className="border border-gray-200 rounded-lg p-4">
+              <div key={category.id} className="border border-ink rounded-none p-4">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <span className="text-lg">{category.icon}</span>
-                    <h4 className="font-medium text-gray-800">{category.name}</h4>
+                    <h4 className="font-medium text-ink">{category.name}</h4>
                   </div>
                   <div className="flex gap-2">
                     <button
                       onClick={() => startEditCategory(category)}
-                      className="text-blue-600 hover:text-blue-700 text-sm"
+                      className="text-razzmatazz hover:text-razzmatazz text-sm"
                     >
                       ✏️
                     </button>
@@ -417,9 +398,9 @@ export default function AdminPage() {
                     </button>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-gray-600">
+                <div className="flex items-center gap-2 text-sm text-ink">
                   <div 
-                    className="w-4 h-4 rounded border border-gray-300"
+                    className="w-4 h-4 rounded-none border border-ink"
                     style={{ backgroundColor: category.color }}
                   ></div>
                   <span>{category.itemCount} article(s)</span>
@@ -430,43 +411,43 @@ export default function AdminPage() {
 
           {/* Formulaire d'édition de catégorie */}
           {editingCategory && (
-            <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
-              <h3 className="text-lg font-medium text-blue-800 mb-4">✏️ Modifier la catégorie</h3>
+            <div className="mt-6 p-4 bg-heliotrope/20 rounded-none border border-ink">
+              <h3 className="text-lg font-medium text-razzmatazz mb-4">✏️ Modifier la catégorie</h3>
               <form onSubmit={handleUpdateCategory} className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <input
                   type="text"
                   placeholder="Nom de la catégorie"
                   value={editCategoryData.name}
                   onChange={(e) => setEditCategoryData(prev => ({ ...prev, name: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-600 placeholder:font-medium bg-white"
+                  className="border border-ink rounded-none px-3 py-2 focus:outline-none focus:ring-2 focus:ring-razzmatazz placeholder:text-ink placeholder:font-medium bg-white"
                   required
                 />
                 <input
                   type="color"
                   value={editCategoryData.color}
                   onChange={(e) => setEditCategoryData(prev => ({ ...prev, color: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                  className="border border-ink rounded-none px-3 py-2 focus:outline-none focus:ring-2 focus:ring-razzmatazz bg-white"
                 />
                 <input
                   type="text"
                   placeholder="Icône (optionnel)"
                   value={editCategoryData.icon}
                   onChange={(e) => setEditCategoryData(prev => ({ ...prev, icon: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder:text-gray-600 placeholder:font-medium bg-white"
+                  className="border border-ink rounded-none px-3 py-2 focus:outline-none focus:ring-2 focus:ring-razzmatazz placeholder:text-ink placeholder:font-medium bg-white"
                   required
                 />
                 <div className="flex gap-2">
                   <button
                     type="submit"
                     disabled={isLoading}
-                    className="bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white px-4 py-2 rounded-lg font-medium"
+                    className="btn disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isLoading ? 'Mise à jour...' : 'Mettre à jour'}
                   </button>
                   <button
                     type="button"
                     onClick={cancelEditCategory}
-                    className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg font-medium"
+                    className="btn"
                   >
                     Annuler
                   </button>

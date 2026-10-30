@@ -143,7 +143,7 @@ export default function SearchBar({ items, onItemSelect, placeholder = "Recherch
   return (
     <div className="relative w-full max-w-2xl" ref={searchRef}>
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/60 w-5 h-5" />
         <input
           ref={inputRef}
           type="text"
@@ -152,12 +152,12 @@ export default function SearchBar({ items, onItemSelect, placeholder = "Recherch
           onKeyDown={handleKeyDown}
           onFocus={() => query.trim().length > 0 && results.length > 0 && setIsOpen(true)}
           placeholder={placeholder}
-          className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent placeholder-gray-600"
+          className="w-full pl-10 pr-10 py-3 border border-ink rounded-none focus:outline-none focus:ring-2 focus:ring-razzmatazz focus:border-transparent placeholder-gray-600"
         />
         {query && (
           <button
             onClick={clearSearch}
-            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-ink/60 hover:text-ink"
           >
             <X className="w-5 h-5" />
           </button>
@@ -166,22 +166,22 @@ export default function SearchBar({ items, onItemSelect, placeholder = "Recherch
 
       {/* Résultats de recherche */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50 max-h-96 overflow-y-auto">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border-ink rounded-none border-[3px] shadow-[5px_5px_0_#0a0a0a] z-50 max-h-96 overflow-y-auto">
           {results.map((item, index) => (
             <div
               key={item.id}
               onClick={() => handleItemSelect(item.id)}
-              className={`px-4 py-3 cursor-pointer hover:bg-gray-50 transition-colors ${
-                index === selectedIndex ? 'bg-blue-50 border-l-4 border-l-blue-500' : ''
+              className={`px-4 py-3 cursor-pointer hover:bg-heliotrope/20 transition-colors ${
+                index === selectedIndex ? 'bg-heliotrope/20 border-l-4 border-l-blue-500' : ''
               }`}
             >
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
-                    <h4 className="font-medium text-gray-900">{item.name}</h4>
+                    <h4 className="font-medium text-ink">{item.name}</h4>
                     {item.category && (
                       <span
-                        className="px-2 py-1 text-xs font-medium rounded-full text-white"
+                        className="px-2 py-1 text-xs font-medium rounded-none text-white"
                         style={{ backgroundColor: item.category.color }}
                       >
                         {item.category.name}
@@ -189,11 +189,11 @@ export default function SearchBar({ items, onItemSelect, placeholder = "Recherch
                     )}
                   </div>
                   {item.description && (
-                    <p className="text-sm text-gray-600 mt-1 line-clamp-2">
+                    <p className="text-sm text-ink mt-1 line-clamp-2">
                       {item.description}
                     </p>
                   )}
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-ink/60 mt-1">
                     Liste: {item.shoppingListName}
                   </p>
                 </div>

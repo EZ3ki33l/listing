@@ -1,17 +1,22 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import localFont from "next/font/local";
+import { Space_Mono } from "next/font/google";
 import "./globals.css";
 import { connection } from "next/server";
 import { FeedbackProvider } from "@/components/Feedback";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const body = localFont({
+  variable: "--font-body",
+  src: [
+    { path: "../fonts/coves-font/coves-light.otf", weight: "100 400" },
+    { path: "../fonts/coves-font/coves-bold.otf", weight: "500 900" },
+  ],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const label = Space_Mono({
+  variable: "--font-label",
   subsets: ["latin"],
+  weight: ["400", "700"],
 });
 
 export const metadata: Metadata = {
@@ -29,7 +34,7 @@ export default async function RootLayout({
   return (
     <html lang="fr-FR">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${body.variable} ${label.variable} antialiased`}
       >
         <FeedbackProvider>{children}</FeedbackProvider>
       </body>

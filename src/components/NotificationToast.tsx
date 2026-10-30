@@ -51,9 +51,9 @@ export default function NotificationToast({
       case 'warning':
         return <AlertTriangle className="w-6 h-6 text-yellow-500" />;
       case 'info':
-        return <Info className="w-6 h-6 text-blue-500" />;
+        return <Info className="w-6 h-6 text-razzmatazz" />;
       default:
-        return <CheckCircle className="w-6 h-6 text-gray-500" />;
+        return <CheckCircle className="w-6 h-6 text-ink/60" />;
     }
   };
 
@@ -66,37 +66,37 @@ export default function NotificationToast({
       case 'warning':
         return 'bg-yellow-50 border-yellow-200 text-yellow-800 shadow-yellow-100';
       case 'info':
-        return 'bg-blue-50 border-blue-200 text-blue-800 shadow-blue-100';
+        return 'bg-heliotrope/20 border-ink text-razzmatazz shadow-blue-100';
       default:
-        return 'bg-gray-50 border-gray-200 text-gray-800 shadow-gray-100';
+        return 'bg-heliotrope/20 border-ink text-ink shadow-gray-100';
     }
   };
 
   const getProgressColor = () => {
     switch (type) {
       case 'success':
-        return 'bg-green-500';
+        return 'bg-malachite !text-ink';
       case 'error':
-        return 'bg-red-500';
+        return 'bg-razzmatazz';
       case 'warning':
-        return 'bg-yellow-500';
+        return 'bg-heliotrope !text-ink';
       case 'info':
-        return 'bg-blue-500';
+        return 'bg-ink';
       default:
-        return 'bg-gray-500';
+        return 'bg-ink';
     }
   };
 
   return (
     <div
       role={type === 'error' ? 'alert' : 'status'}
-      className={`fixed top-4 right-4 z-[60] w-96 transform transition-all duration-300 ease-in-out ${
+      className={`fixed top-4 right-4 z-[60] w-96  transition-all duration-300 ease-in-out ${
         isVisible ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
       }`}
     >
-      <div className={`rounded-xl border-2 shadow-xl backdrop-blur-sm ${getStyles()}`}>
+      <div className={`rounded-none border-2 border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] backdrop-blur-sm ${getStyles()}`}>
         {/* Barre de progression */}
-        <div className="h-1 w-full bg-gray-200 rounded-t-xl overflow-hidden">
+        <div className="h-1 w-full bg-gray-200 rounded-none overflow-hidden">
           <div 
             className={`h-full transition-all duration-100 ease-linear ${getProgressColor()}`}
             style={{ width: `${progress}%` }}
@@ -124,7 +124,7 @@ export default function NotificationToast({
             <button
               aria-label="Fermer"
               onClick={closeSoon}
-              className="flex-shrink-0 ml-2 p-1 rounded-full hover:bg-white/20 transition-colors"
+              className="flex-shrink-0 ml-2 p-1 rounded-none hover:bg-white/20 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>

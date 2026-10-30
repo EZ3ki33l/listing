@@ -90,9 +90,9 @@ export default function EventCountdown({
         return {
           icon: Cake,
           colors: {
-            primary: 'from-pink-500 to-rose-500',
-            secondary: 'from-pink-400 to-rose-400',
-            accent: 'from-pink-300 to-rose-300'
+            primary: 'bg-razzmatazz text-paper',
+            secondary: '',
+            accent: ''
           },
           emoji: '🎂',
           title: 'Anniversaire'
@@ -101,9 +101,9 @@ export default function EventCountdown({
         return {
           icon: Gift,
           colors: {
-            primary: 'from-red-500 to-green-500',
-            secondary: 'from-red-400 to-green-400',
-            accent: 'from-red-300 to-green-300'
+            primary: 'bg-razzmatazz text-paper',
+            secondary: '',
+            accent: ''
           },
           emoji: '🎄',
           title: 'Noël'
@@ -112,9 +112,9 @@ export default function EventCountdown({
         return {
           icon: Heart,
           colors: {
-            primary: 'from-red-500 to-pink-500',
-            secondary: 'from-red-400 to-pink-400',
-            accent: 'from-red-300 to-pink-300'
+            primary: 'bg-razzmatazz text-paper',
+            secondary: '',
+            accent: ''
           },
           emoji: '💝',
           title: 'Saint-Valentin'
@@ -123,9 +123,9 @@ export default function EventCountdown({
         return {
           icon: Users,
           colors: {
-            primary: 'from-blue-500 to-purple-500',
-            secondary: 'from-blue-400 to-purple-400',
-            accent: 'from-blue-300 to-purple-300'
+            primary: 'bg-razzmatazz text-paper',
+            secondary: '',
+            accent: ''
           },
           emoji: '💕',
           title: 'Anniversaire de rencontre'
@@ -134,9 +134,9 @@ export default function EventCountdown({
         return {
           icon: Gift,
           colors: {
-            primary: 'from-blue-500 to-indigo-500',
-            secondary: 'from-blue-400 to-indigo-400',
-            accent: 'from-blue-300 to-indigo-300'
+            primary: 'bg-razzmatazz text-paper',
+            secondary: '',
+            accent: ''
           },
           emoji: '🎉',
           title: 'Événement'
@@ -150,44 +150,40 @@ export default function EventCountdown({
 
   if (compact) {
     return (
-      <div className="bg-white rounded-2xl shadow-lg p-6 text-center hover:shadow-xl transition-all duration-300 transform hover:scale-105 border-2 border-gray-100 h-full min-h-[280px] md:min-h-[300px] lg:min-h-[320px] flex flex-col justify-between">
+      <div className="brut h-full min-h-[260px] flex flex-col">
         {showTitle && (
-          <div className="text-center mb-4">
-            <div className="text-4xl mb-2 animate-bounce">{config.emoji}</div>
-            <h3 className="font-bold text-gray-800 text-lg mb-1">{finalEventName}</h3>
-            {finalHasTargetDate && finalTargetDate && (
-              <p className="text-gray-600 text-sm font-medium">{config.title}</p>
-            )}
+          <div className={`${config.colors.primary} border-b-[3px] border-ink px-5 py-4`}>
+            <span className="label">{config.title}</span>
+            <h3 className="mt-3 text-2xl font-extrabold uppercase leading-tight break-words">
+              <span aria-hidden="true">{config.emoji} </span>
+              {finalEventName}
+            </h3>
             {event?.isPrivate && (
-              <span className="inline-block px-2 py-1 text-xs bg-red-100 text-red-700 rounded-full mt-2">
-                🔒 Liste privée
-              </span>
+              <span className="label mt-3 !bg-paper !text-ink">Liste privée</span>
             )}
           </div>
         )}
-        
+
         {finalHasTargetDate && finalTargetDate ? (
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-3 border border-blue-200 shadow-sm">
-              <div className="text-2xl font-bold text-blue-700 mb-1">{timeLeft.days}</div>
-              <div className="text-xs text-blue-600 font-medium">Jours</div>
-            </div>
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-xl p-3 border border-purple-200 shadow-sm">
-              <div className="text-2xl font-bold text-purple-700 mb-1">{timeLeft.hours}</div>
-              <div className="text-xs text-purple-600 font-medium">Heures</div>
-            </div>
-            <div className="bg-gradient-to-br from-pink-50 to-pink-100 rounded-xl p-3 border border-pink-200 shadow-sm">
-              <div className="text-2xl font-bold text-pink-700 mb-1">{timeLeft.minutes}</div>
-              <div className="text-xs text-pink-600 font-medium">Minutes</div>
-            </div>
+          <div className="grid grid-cols-3 flex-1 divide-x-[3px] divide-ink">
+            {[
+              { value: timeLeft.days, unit: 'Jours', bg: 'bg-malachite' },
+              { value: timeLeft.hours, unit: 'Heures', bg: 'bg-heliotrope' },
+              { value: timeLeft.minutes, unit: 'Min', bg: 'bg-paper' },
+            ].map(({ value, unit, bg }) => (
+              <div key={unit} className={`${bg} flex flex-col items-center justify-center p-3`}>
+                <div className="text-4xl font-extrabold tabular-nums">{value}</div>
+                <div className="font-mono text-xs font-bold uppercase tracking-widest mt-1">{unit}</div>
+              </div>
+            ))}
           </div>
         ) : (
-          <div className="text-center py-8">
+          <div className="flex-1 flex items-center justify-center bg-malachite p-6">
             <Link
               href={event?.id ? `/liste?event=${event.id}` : `/liste?type=${finalEventType}`}
-              className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
+              className="btn btn-pink"
             >
-              🛍️ Voir la liste
+              Voir la liste
             </Link>
           </div>
         )}
@@ -196,7 +192,7 @@ export default function EventCountdown({
   }
 
   return (
-    <div className={`bg-gradient-to-br ${config.colors.primary} rounded-2xl p-8 text-white text-center shadow-xl`}>
+    <div className={`brut ${config.colors.primary} p-8 text-center`}>
       <div className="text-6xl mb-4">{config.emoji}</div>
       
       {showTitle && (
@@ -206,7 +202,7 @@ export default function EventCountdown({
             <p className="text-xl opacity-90">{config.title}</p>
           )}
           {event?.isPrivate && (
-            <span className="inline-block px-3 py-1 text-sm bg-red-100 text-red-700 rounded-full mt-2">
+            <span className="label mt-2 !bg-paper !text-ink">
               🔒 Liste privée
             </span>
           )}
@@ -216,15 +212,15 @@ export default function EventCountdown({
       {finalHasTargetDate && finalTargetDate ? (
         <>
           <div className="grid grid-cols-3 gap-6 mb-8">
-            <div className="bg-white/20 rounded-xl p-4">
+            <div className="bg-ink/20 border-[3px] border-ink p-4">
               <div className="text-4xl font-bold">{timeLeft.days}</div>
               <div className="text-lg">Jours</div>
             </div>
-            <div className="bg-white/20 rounded-xl p-4">
+            <div className="bg-ink/20 border-[3px] border-ink p-4">
               <div className="text-4xl font-bold">{timeLeft.hours}</div>
               <div className="text-lg">Heures</div>
             </div>
-            <div className="bg-white/20 rounded-xl p-3">
+            <div className="bg-ink/20 border-[3px] border-ink p-3">
               <div className="text-4xl font-bold">{timeLeft.minutes}</div>
               <div className="text-lg">Minutes</div>
             </div>
@@ -244,9 +240,9 @@ export default function EventCountdown({
         <div className="text-center py-8">
           <Link
             href={event?.id ? `/liste?event=${event.id}` : `/liste?type=${finalEventType}`}
-            className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
+            className="btn btn-pink"
           >
-            🛍️ Voir la liste
+            Voir la liste
           </Link>
         </div>
       )}

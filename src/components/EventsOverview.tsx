@@ -16,15 +16,15 @@ interface Event {
 const getEventTypeInfo = (eventType: string) => {
   switch (eventType) {
     case 'anniversaire':
-      return { emoji: '🎂', color: 'from-pink-500 to-rose-500', label: 'Anniversaire' };
+      return { emoji: '🎂', color: ' ', label: 'Anniversaire' };
     case 'noel':
-      return { emoji: '🎄', color: 'from-red-500 to-green-500', label: 'Noël' };
+      return { emoji: '🎄', color: ' ', label: 'Noël' };
     case 'saint-valentin':
-      return { emoji: '💝', color: 'from-red-500 to-pink-500', label: 'Saint-Valentin' };
+      return { emoji: '💝', color: ' ', label: 'Saint-Valentin' };
     case 'anniversaire-rencontre':
-      return { emoji: '💕', color: 'from-blue-500 to-purple-500', label: 'Anniversaire de rencontre' };
+      return { emoji: '💕', color: ' ', label: 'Anniversaire de rencontre' };
     default:
-      return { emoji: '🎉', color: 'from-blue-500 to-indigo-500', label: 'Événement' };
+      return { emoji: '🎉', color: ' ', label: 'Événement' };
   }
 };
 
@@ -66,8 +66,8 @@ export default function EventsOverview() {
   if (isLoading) {
     return (
       <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-        <p className="mt-2 text-gray-600">Chargement des événements...</p>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-ink mx-auto"></div>
+        <p className="mt-2 text-ink">Chargement des événements...</p>
       </div>
     );
   }
@@ -76,19 +76,19 @@ export default function EventsOverview() {
     // Si l'utilisateur n'est pas connecté, afficher un message d'invitation
     if (!userId) {
       return (
-        <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
+        <div className="bg-white rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] p-6 mb-8">
           <div className="flex items-center gap-2 mb-4">
-            <Calendar className="w-5 h-5 text-blue-600" />
-            <h2 className="text-xl font-semibold text-gray-800">📅 Aperçu de vos événements</h2>
+            <Calendar className="w-5 h-5 text-razzmatazz" />
+            <h2 className="text-xl font-semibold text-ink">📅 Aperçu de vos événements</h2>
           </div>
           <div className="text-center py-8">
             <div className="text-4xl mb-2">🔐</div>
-            <p className="text-gray-600">Connectez-vous pour voir vos événements</p>
-            <p className="text-sm text-gray-500 mt-2">Créez un compte ou connectez-vous pour organiser vos événements</p>
+            <p className="text-ink">Connectez-vous pour voir vos événements</p>
+            <p className="text-sm text-ink/60 mt-2">Créez un compte ou connectez-vous pour organiser vos événements</p>
             <div className="mt-4 space-x-4">
               <Link
                 href="/user"
-                className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
+                className="btn"
               >
                 🔑 Se connecter
               </Link>
@@ -100,15 +100,15 @@ export default function EventsOverview() {
     
     // Si l'utilisateur est connecté mais n'a pas d'événements
     return (
-      <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
+      <div className="bg-white rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] p-6 mb-8">
         <div className="flex items-center gap-2 mb-4">
-          <Calendar className="w-5 h-5 text-blue-600" />
-          <h2 className="text-xl font-semibold text-gray-800">📅 Aperçu de vos événements</h2>
+          <Calendar className="w-5 h-5 text-razzmatazz" />
+          <h2 className="text-xl font-semibold text-ink">📅 Aperçu de vos événements</h2>
         </div>
         <div className="text-center py-8">
           <div className="text-4xl mb-2">🎉</div>
-          <p className="text-gray-600">Vous n&apos;avez pas encore d&apos;événements</p>
-          <p className="text-sm text-gray-500 mt-2">Créez votre premier événement pour commencer !</p>
+          <p className="text-ink">Vous n&apos;avez pas encore d&apos;événements</p>
+          <p className="text-sm text-ink/60 mt-2">Créez votre premier événement pour commencer !</p>
         </div>
       </div>
     );
@@ -124,10 +124,10 @@ export default function EventsOverview() {
     .sort((a, b) => a.daysUntil - b.daysUntil);
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border p-6 mb-8">
+    <div className="bg-white rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] p-6 mb-8">
       <div className="flex items-center gap-2 mb-4">
-        <Calendar className="w-5 h-5 text-blue-600" />
-        <h2 className="text-xl font-semibold text-gray-800">📅 Aperçu de vos événements</h2>
+        <Calendar className="w-5 h-5 text-razzmatazz" />
+        <h2 className="text-xl font-semibold text-ink">📅 Aperçu de vos événements</h2>
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -136,19 +136,19 @@ export default function EventsOverview() {
           const isUpcoming = event.daysUntil <= 30 && event.daysUntil > 0;
           
           return (
-            <div key={event.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+            <div key={event.id} className="border border-ink rounded-none p-4 transition-shadow">
               <div className="flex items-center gap-3 mb-3">
-                <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${typeInfo.color} flex items-center justify-center text-white text-lg`}>
+                <div className={`w-10 h-10 rounded-none ${typeInfo.color} flex items-center justify-center text-white text-lg bg-razzmatazz hover:bg-ink border-[3px] border-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a] transition-all`}>
                   {typeInfo.emoji}
                 </div>
                 <div>
-                  <h3 className="font-medium text-gray-800 text-sm">{event.name}</h3>
-                  <p className="text-xs text-gray-600">{typeInfo.label}</p>
+                  <h3 className="font-medium text-ink text-sm">{event.name}</h3>
+                  <p className="text-xs text-ink">{typeInfo.label}</p>
                 </div>
               </div>
               
               <div className="space-y-2">
-                <p className="text-xs text-gray-500 flex items-center gap-1">
+                <p className="text-xs text-ink/60 flex items-center gap-1">
                   <Clock className="w-3 h-3" />
                   {new Date(event.targetDate!).toLocaleDateString('fr-FR', {
                     day: 'numeric',
@@ -157,12 +157,12 @@ export default function EventsOverview() {
                   })}
                 </p>
                 
-                <div className={`text-center p-2 rounded text-xs font-medium ${
+                <div className={`text-center p-2 rounded-none text-xs font-medium ${
                   isUpcoming 
                     ? 'bg-green-100 text-green-800' 
                     : event.daysUntil <= 0 
-                    ? 'bg-blue-100 text-blue-800'
-                    : 'bg-gray-100 text-gray-600'
+                    ? 'bg-blue-100 text-razzmatazz'
+                    : 'bg-heliotrope/20 text-ink'
                 }`}>
                   {event.daysUntil > 0 
                     ? `${event.daysUntil} jours` 
@@ -178,7 +178,7 @@ export default function EventsOverview() {
       </div>
       
       <div className="mt-4 text-center">
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-ink">
           {sortedEvents.filter(e => e.daysUntil <= 30 && e.daysUntil > 0).length > 0 
             ? '🎯 Un événement arrive bientôt ! Consultez la page d\'accueil pour le compte à rebours.'
             : '📋 Aucun événement dans les 30 prochains jours. Consultez vos listes d\'achats !'

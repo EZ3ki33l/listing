@@ -48,12 +48,12 @@ export default function DefaultCategoriesInitializer({
   }
 
   return (
-    <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg border border-purple-200">
+    <div className="mb-6 p-4 rounded-none border border-purple-200 bg-paper">
       <div className="flex items-start gap-3">
-        <div className="text-purple-600 text-xl">🎯</div>
+        <div className="text-razzmatazz text-xl">🎯</div>
         <div className="flex-1">
-          <h4 className="font-medium text-purple-800 mb-2">Initialiser les catégories par défaut</h4>
-          <p className="text-purple-700 text-sm mb-3">
+          <h4 className="font-medium text-razzmatazz mb-2">Initialiser les catégories par défaut</h4>
+          <p className="text-razzmatazz text-sm mb-3">
             Créez automatiquement 15 catégories prédéfinies pour organiser vos listes de courses : 
             vêtements & chaussures, électronique & tech, livres & médias, beauté & soins, cuisine & maison, 
             gaming & loisirs, sport & fitness, bijoux & accessoires, santé & bien-être, bricolage & jardinage, 
@@ -63,7 +63,7 @@ export default function DefaultCategoriesInitializer({
           <button
             onClick={handleInitialize}
             disabled={isLoading}
-            className="inline-block bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 disabled:from-gray-400 disabled:to-gray-500 text-white px-6 py-2 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium disabled:transform-none disabled:cursor-not-allowed"
+            className="inline-block text-white px-6 py-2 rounded-none transition-all border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] font-medium disabled:transform-none disabled:cursor-not-allowed bg-razzmatazz hover:bg-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a] disabled:opacity-50"
           >
             {isLoading ? '⏳ Création en cours...' : '🚀 Créer les catégories par défaut'}
           </button>

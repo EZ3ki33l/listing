@@ -1,7 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { PageLoader, SiteHeader, PageHero } from '@/components/PageChrome';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Slider, { revealSlide } from '@/components/Slider';
+import UserMenu from '@/components/UserMenu';
 import { getEvent, createShoppingItem, updateItemStatus, deleteShoppingItem, getCategories } from '@/lib/actions';
 import Link from 'next/link';
 import CategoryFilter from '@/components/CategoryFilter';
@@ -67,6 +70,7 @@ function ListePageContent() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
+  const router = useRouter();
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string } | null>(null);
   const [showThankYouModal, setShowThankYouModal] = useState(false);
   const [newItem, setNewItem] = useState({
@@ -260,16 +264,16 @@ function ListePageContent() {
   // Si l'utilisateur n'est pas connecté, afficher un message d'erreur
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50 flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center bg-stripes">
         <div className="text-center">
           <div className="text-6xl mb-4">🔐</div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">Connexion requise</h1>
-          <p className="text-gray-600 mb-6">
+          <h1 className="text-2xl font-bold text-ink mb-4">Connexion requise</h1>
+          <p className="text-ink mb-6">
             Vous devez être connecté pour accéder à cette liste d&apos;achats.
           </p>
           <Link
             href="/"
-            className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
+            className="inline-block text-white px-6 py-3 rounded-none transition-all border-[3px] border-ink  font-medium bg-razzmatazz hover:bg-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
           >
             ← Retour à l&apos;accueil
           </Link>
@@ -280,27 +284,22 @@ function ListePageContent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Chargement de la liste...</p>
-        </div>
-      </div>
+      <PageLoader message="Chargement de la liste…" />
     );
   }
 
   if (!event) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50 flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center bg-stripes">
         <div className="text-center">
           <div className="text-6xl mb-4">❌</div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">Événement non trouvé</h1>
-          <p className="text-gray-600 mb-6">
+          <h1 className="text-2xl font-bold text-ink mb-4">Événement non trouvé</h1>
+          <p className="text-ink mb-6">
             L&apos;événement que vous recherchez n&apos;existe pas ou vous n&apos;y avez pas accès.
           </p>
           <Link
             href="/user"
-            className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
+            className="inline-block text-white px-6 py-3 rounded-none transition-all border-[3px] border-ink  font-medium bg-razzmatazz hover:bg-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
           >
             ← Retour à l&apos;espace utilisateur
           </Link>
@@ -311,16 +310,16 @@ function ListePageContent() {
 
   if (!event.owner) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50 flex items-center justify-center">
+      <div className="min-h-dvh flex items-center justify-center bg-stripes">
         <div className="text-center">
           <div className="text-6xl mb-4">⚠️</div>
-          <h1 className="text-2xl font-bold text-gray-800 mb-4">Erreur de données</h1>
-          <p className="text-gray-600 mb-6">
+          <h1 className="text-2xl font-bold text-ink mb-4">Erreur de données</h1>
+          <p className="text-ink mb-6">
             L&apos;événement existe mais les informations du propriétaire sont manquantes.
           </p>
           <Link
             href="/user"
-            className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-6 py-3 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
+            className="inline-block text-white px-6 py-3 rounded-none transition-all border-[3px] border-ink  font-medium bg-razzmatazz hover:bg-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
           >
             ← Retour à l&apos;espace utilisateur
           </Link>
@@ -355,48 +354,33 @@ function ListePageContent() {
   const pendingItems = filteredItems.filter(item => !item.isPurchased);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50">
-      <header className="bg-white/30 backdrop-blur-sm border-b border-gray-200/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div>
-              <h1 className="text-2xl font-semibold text-gray-700">
-                🛍️ {event.name}
-              </h1>
-                             <p className="text-sm text-gray-600">
-                 Liste d&apos;achats • Créée par {event.owner.username}
-                 {event.hasTargetDate && event.targetDate && (
-                   <span> • Date cible : {new Date(event.targetDate).toLocaleDateString('fr-FR')}</span>
-                 )}
-                 {currentUser && (
-                   <span className={`ml-2 px-2 py-1 text-xs font-medium rounded-full ${
-                     isOwner() 
-                       ? 'bg-green-100 text-green-800 border border-green-200' 
-                       : 'bg-blue-100 text-blue-800 border border-blue-200'
-                   }`}>
-                     {isOwner() ? '👑 Propriétaire' : '👥 Utilisateur partagé'}
-                   </span>
-                 )}
-               </p>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <Link
-                href="/"
-                className="inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white px-4 py-2 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium"
-              >
-                ← Retour à l&apos;accueil
-              </Link>
-            </div>
-          </div>
-        </div>
-      </header>
+    <div className="min-h-dvh bg-paper">
+      <SiteHeader>
+        <button
+          type="button"
+          onClick={() => (window.history.length > 1 ? router.back() : router.push('/'))}
+          className="btn btn-pink"
+        >
+          ← Retour
+        </button>
+        <UserMenu userId={currentUser!.id} />
+      </SiteHeader>
 
-      <main className="max-w-6xl mx-auto p-6">
-        {/* Filtres et recherche */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
-          <div className="space-y-6">
-            {/* Barre de recherche */}
+      <PageHero kicker={`Liste d'achats · Créée par ${event.owner.username}`} title={`🛍️ ${event.name}`}>
+        <div className="flex flex-wrap gap-2">
+          {event.hasTargetDate && event.targetDate && (
+            <span className="label !bg-paper !text-ink border-2 border-ink">
+              Date cible : {new Date(event.targetDate).toLocaleDateString('fr-FR')}
+            </span>
+          )}
+          {currentUser && (
+            <span className={`label border-2 border-ink ${isOwner() ? '!bg-heliotrope !text-ink' : '!bg-razzmatazz'}`}>
+              {isOwner() ? '👑 Propriétaire' : '👥 Utilisateur partagé'}
+            </span>
+          )}
+        </div>
+        <div className="mt-5 flex flex-wrap items-start gap-4">
+          <div className="w-full max-w-xl">
             <SearchBar
               items={event.items.map(item => ({
                 id: item.id,
@@ -412,19 +396,20 @@ function ListePageContent() {
                 // Faire défiler vers l'article sélectionné
                 const element = document.getElementById(`item-${itemId}`);
                 if (element) {
-                  element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                  // Mettre en surbrillance temporaire
-                  element.classList.add('ring-4', 'ring-blue-500', 'ring-opacity-50');
+                  // L'article peut être dans une slide hors champ : on y glisse d'abord
+                  const slid = revealSlide(element);
                   setTimeout(() => {
-                    element.classList.remove('ring-4', 'ring-blue-500', 'ring-opacity-50');
-                  }, 2000);
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    element.classList.add('ring-4', 'ring-razzmatazz');
+                    setTimeout(() => element.classList.remove('ring-4', 'ring-razzmatazz'), 2000);
+                  }, slid ? 450 : 0);
                 }
               }}
               placeholder="Rechercher un article dans cette liste..."
             />
             
-            {/* Filtre par catégorie */}
-            <CategoryFilter
+                      </div>
+          <CategoryFilter
               categories={categories.map(cat => ({
                 ...cat,
                 icon: cat.icon || undefined,
@@ -434,15 +419,16 @@ function ListePageContent() {
               onCategorySelect={setSelectedCategories}
               showAll={true}
             />
-          </div>
         </div>
+      </PageHero>
 
+      <main className="max-w-7xl mx-auto px-5 py-10">
         {/* Bouton d'ajout - Seulement pour le propriétaire */}
         {canAddItems() && (
           <div className="text-center mb-8">
             <button
               onClick={() => setShowAddForm(!showAddForm)}
-              className="inline-block bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-4 rounded-full transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium text-lg"
+              className="inline-block text-white px-8 py-4 rounded-none transition-all border-[3px] border-ink  font-medium text-lg bg-razzmatazz hover:bg-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
             >
               ➕ Ajouter un article
             </button>
@@ -452,8 +438,8 @@ function ListePageContent() {
         {/* Message informatif pour les utilisateurs partagés */}
         {!canAddItems() && currentUser && (
           <div className="text-center mb-8">
-            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 max-w-md mx-auto">
-              <div className="text-blue-600 text-sm">
+            <div className="bg-heliotrope/20 border border-ink rounded-none p-4 max-w-md mx-auto">
+              <div className="text-razzmatazz text-sm">
                 <p className="font-medium mb-1">👥 Liste partagée</p>
                 <p>Vous pouvez voir et marquer les articles comme achetés, mais seul le propriétaire peut les modifier.</p>
               </div>
@@ -463,8 +449,8 @@ function ListePageContent() {
 
         {/* Formulaire d'ajout - Seulement pour le propriétaire */}
         {showAddForm && canAddItems() && (
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-8">
-            <h3 className="text-xl font-semibold text-gray-800 mb-4">✨ Ajouter un nouvel article</h3>
+          <div className="bg-white rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] p-6 mb-8">
+            <h3 className="text-xl font-semibold text-ink mb-4">✨ Ajouter un nouvel article</h3>
             <form onSubmit={handleAddItem} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <input
@@ -472,13 +458,13 @@ function ListePageContent() {
                   placeholder="Nom de l'article"
                   value={newItem.name}
                   onChange={(e) => setNewItem(prev => ({ ...prev, name: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                  className="border border-ink rounded-none px-3 py-2 focus:outline-none focus:ring-2 focus:ring-razzmatazz text-ink"
                   required
                 />
                 <select
                   value={newItem.categoryId}
                   onChange={(e) => setNewItem(prev => ({ ...prev, categoryId: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                  className="border border-ink rounded-none px-3 py-2 focus:outline-none focus:ring-2 focus:ring-razzmatazz text-ink"
                 >
                   <option value="">Sélectionner une catégorie</option>
                   {categories.map(category => (
@@ -495,7 +481,7 @@ function ListePageContent() {
                   placeholder="Description (optionnel)"
                   value={newItem.description}
                   onChange={(e) => setNewItem(prev => ({ ...prev, description: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                  className="border border-ink rounded-none px-3 py-2 focus:outline-none focus:ring-2 focus:ring-razzmatazz text-ink"
                 />
                 <input
                   type="number"
@@ -503,7 +489,7 @@ function ListePageContent() {
                   placeholder="Prix estimé (€)"
                   value={newItem.price}
                   onChange={(e) => setNewItem(prev => ({ ...prev, price: e.target.value }))}
-                  className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                  className="border border-ink rounded-none px-3 py-2 focus:outline-none focus:ring-2 focus:ring-razzmatazz text-ink"
                 />
               </div>
               
@@ -512,12 +498,12 @@ function ListePageContent() {
                 placeholder="🔗 Lien d'achat (ex: Amazon, etc.) - Optionnel"
                 value={newItem.purchaseUrl}
                 onChange={(e) => setNewItem(prev => ({ ...prev, purchaseUrl: e.target.value }))}
-                className="border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                className="border border-ink rounded-none px-3 py-2 focus:outline-none focus:ring-2 focus:ring-razzmatazz text-ink"
               />
 
               {/* Gestion des photos */}
               <div>
-                <h4 className="text-lg font-medium text-gray-800 mb-3">📸 Photos</h4>
+                <h4 className="text-lg font-medium text-ink mb-3">📸 Photos</h4>
                 <div className="space-y-3">
                   {newItem.photos.map((photo, index) => (
                     <div key={index} className="flex items-center space-x-3">
@@ -526,20 +512,20 @@ function ListePageContent() {
                         placeholder="URL de l'image"
                         value={photo.imageUrl}
                         onChange={(e) => updatePhotoField(index, 'imageUrl', e.target.value)}
-                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                        className="flex-1 border border-ink rounded-none px-3 py-2 focus:outline-none focus:ring-2 focus:ring-razzmatazz text-ink"
                       />
                       <input
                         type="text"
                         placeholder="Description de l'image (optionnel)"
                         value={photo.altText}
                         onChange={(e) => updatePhotoField(index, 'altText', e.target.value)}
-                        className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-gray-900"
+                        className="flex-1 border border-ink rounded-none px-3 py-2 focus:outline-none focus:ring-2 focus:ring-razzmatazz text-ink"
                       />
                       {newItem.photos.length > 1 && (
                         <button
                           type="button"
                           onClick={() => removePhotoField(index)}
-                          className="bg-red-500 hover:bg-red-600 text-white p-2 rounded-lg transition-colors"
+                          className="bg-razzmatazz hover:bg-razzmatazz text-white p-2 rounded-none transition-colors"
                         >
                           🗑️
                         </button>
@@ -549,7 +535,7 @@ function ListePageContent() {
                   <button
                     type="button"
                     onClick={addPhotoField}
-                    className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors"
+                    className="btn"
                   >
                     📷 + Ajouter une photo
                   </button>
@@ -560,14 +546,14 @@ function ListePageContent() {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white px-6 py-2 rounded-lg font-medium"
+                  className="btn disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isLoading ? '⏳ Ajout...' : '✨ Ajouter l\'article'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowAddForm(false)}
-                  className="bg-gray-500 hover:bg-gray-600 text-white px-6 py-2 rounded-lg font-medium"
+                  className="btn"
                 >
                   Annuler
                 </button>
@@ -577,20 +563,21 @@ function ListePageContent() {
         )}
 
         {/* Articles à acheter */}
-        <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-800 mb-6">
+        <div className="bg-white rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] p-6 mb-6">
+          <h2 className="text-2xl uppercase mb-6 border-b-[3px] border-ink pb-3">
             🛒 Articles à acheter ({pendingItems.length})
           </h2>
           
           {pendingItems.length === 0 ? (
             <div className="text-center py-8">
               <div className="text-4xl mb-2">🎉</div>
-              <p className="text-gray-600">Tous les articles ont été achetés !</p>
+              <p className="text-ink">Tous les articles ont été achetés !</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Slider threeUp label="Articles à acheter">
               {pendingItems.map((item, index) => (
-                <div key={item.id} id={`item-${item.id}`} className="bg-gradient-to-br from-gray-50 to-white rounded-xl border border-gray-100 p-4 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-full">
+                <div key={item.id}>
+                <div id={`item-${item.id}`} className="border-ink p-4 border-[3px] shadow-[5px_5px_0_#0a0a0a] flex flex-col h-full bg-paper">
                   {/* Photos */}
                   {item.photos && item.photos.length > 0 && (
                     <div className="mb-4">
@@ -609,10 +596,10 @@ function ListePageContent() {
                   {/* Informations de l'article */}
                   <div className="flex flex-col flex-grow space-y-3">
                     <div className="flex justify-between items-start">
-                      <h3 className="font-medium text-gray-800 text-lg">{item.name}</h3>
+                      <h3 className="font-medium text-ink text-lg">{item.name}</h3>
                       {item.category && (
                         <span
-                          className="px-2 py-1 text-xs font-medium rounded-full text-white flex items-center gap-1"
+                          className="px-2 py-1 text-xs font-medium rounded-none text-white flex items-center gap-1"
                           style={{ backgroundColor: item.category.color }}
                         >
                           {item.category.icon} {item.category.name}
@@ -621,7 +608,7 @@ function ListePageContent() {
                     </div>
                     
                     {item.description && (
-                      <p className="text-sm text-gray-600">{item.description}</p>
+                      <p className="text-sm text-ink">{item.description}</p>
                     )}
                     
                     {item.price && (
@@ -637,7 +624,7 @@ function ListePageContent() {
                       {!event.purchasesHidden && (
                         <button
                           onClick={() => handleToggleItem(item.id, true)}
-                          className="flex-1 bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                          className="btn flex-1"
                         >
                           ✅ Acheté
                         </button>
@@ -649,7 +636,7 @@ function ListePageContent() {
                           href={item.purchaseUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex-1 inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                          className="btn flex-1"
                         >
                           🛒 Acheter
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -662,7 +649,7 @@ function ListePageContent() {
                       {canDeleteItems() && (
                         <button
                           onClick={() => handleDeleteItem(item.id)}
-                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                          className="btn btn-pink"
                         >
                           🗑️
                         </button>
@@ -670,21 +657,23 @@ function ListePageContent() {
                     </div>
                   </div>
                 </div>
+                </div>
               ))}
-            </div>
+            </Slider>
           )}
         </div>
 
         {/* Articles achetés */}
         {purchasedItems.length > 0 && (
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-            <h2 className="text-xl font-semibold text-gray-800 mb-6">
+          <div className="bg-white rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] p-6">
+            <h2 className="text-2xl uppercase mb-6 border-b-[3px] border-ink pb-3">
               ✅ Articles achetés ({purchasedItems.length})
             </h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <Slider threeUp label="Articles achetés">
               {purchasedItems.map((item, index) => (
-                <div key={item.id} id={`item-${item.id}`} className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl border border-green-200 p-4 shadow-sm flex flex-col h-full">
+                <div key={item.id}>
+                <div id={`item-${item.id}`} className="border-green-200 p-4 border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] flex flex-col h-full bg-paper">
                   {/* Photos */}
                   {item.photos && item.photos.length > 0 && (
                     <div className="mb-4">
@@ -703,10 +692,10 @@ function ListePageContent() {
                   {/* Informations de l'article */}
                   <div className="flex flex-col flex-grow space-y-3">
                     <div className="flex justify-between items-start">
-                      <h3 className="font-medium text-gray-800 text-lg line-through">{item.name}</h3>
+                      <h3 className="font-medium text-ink text-lg line-through">{item.name}</h3>
                       {item.category && (
                         <span
-                          className="px-2 py-1 text-xs font-medium rounded-full text-white flex items-center gap-1"
+                          className="px-2 py-1 text-xs font-medium rounded-none text-white flex items-center gap-1"
                           style={{ backgroundColor: item.category.color }}
                         >
                           {item.category.icon} {item.category.name}
@@ -715,7 +704,7 @@ function ListePageContent() {
                     </div>
                     
                     {item.description && (
-                      <p className="text-sm text-gray-600 line-through">{item.description}</p>
+                      <p className="text-sm text-ink line-through">{item.description}</p>
                     )}
                     
                     {!event.purchasesHidden && (
@@ -735,7 +724,7 @@ function ListePageContent() {
                           href={item.purchaseUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex-1 inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                          className="btn flex-1"
                         >
                           🛒 Acheter
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -748,7 +737,7 @@ function ListePageContent() {
                       {!event.purchasesHidden && (
                         <button
                           onClick={() => handleToggleItem(item.id, false)}
-                          className="flex-1 bg-yellow-500 hover:bg-yellow-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                          className="flex-1 bg-heliotrope !text-ink hover:bg-heliotrope text-white px-3 py-2 rounded-none text-sm font-medium transition-colors"
                         >
                           🔄 Annuler
                         </button>
@@ -758,7 +747,7 @@ function ListePageContent() {
                       {canDeleteItems() && (
                         <button
                           onClick={() => handleDeleteItem(item.id)}
-                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                          className="btn btn-pink"
                         >
                           🗑️
                         </button>
@@ -766,8 +755,9 @@ function ListePageContent() {
                     </div>
                   </div>
                 </div>
+                </div>
               ))}
-            </div>
+            </Slider>
           </div>
         )}
       </main>
@@ -784,12 +774,7 @@ function ListePageContent() {
 export default function ListePage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-pink-50 to-purple-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-lg text-gray-600">Chargement...</p>
-        </div>
-      </div>
+      <PageLoader message="Chargement…" />
     }>
       <ListePageContent />
     </Suspense>

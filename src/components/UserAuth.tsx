@@ -75,20 +75,20 @@ export default function UserAuth({ onLogin, onClose }: UserAuthProps) {
     return <EmailPrompt onDone={(email) => onLogin({ ...noEmailUser, email: email ?? noEmailUser.email })} />;
   }
 
-  const input = 'w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-gray-900 placeholder-gray-500 transition-all duration-200';
+  const input = 'w-full px-4 py-3 border border-ink rounded-none focus:outline-none focus:ring-2 focus:ring-razzmatazz focus:border-ink text-ink placeholder-gray-500 transition-all duration-200';
 
   return (
     <Modal open onClose={onClose} labelledBy="auth-title">
-      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4">
+      <div className="bg-white rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] max-w-md w-full mx-4">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 id="auth-title" className="text-2xl font-bold text-gray-800">
+            <h2 id="auth-title" className="text-2xl font-bold text-ink">
               {forgot ? '🔑 Mot de passe oublié' : isLogin ? '🔐 Connexion' : '✨ Inscription'}
             </h2>
             <button
               aria-label="Fermer"
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-ink/60 hover:text-ink transition-colors"
             >
               ✕
             </button>
@@ -97,7 +97,7 @@ export default function UserAuth({ onLogin, onClose }: UserAuthProps) {
           <form onSubmit={handleSubmit} className="space-y-4">
             {forgot ? (
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="email" className="block text-sm font-medium text-ink mb-2">
                   Email du compte
                 </label>
                 <input
@@ -110,11 +110,11 @@ export default function UserAuth({ onLogin, onClose }: UserAuthProps) {
                   value={formData.email}
                   onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                 />
-                <p className="mt-2 text-xs text-gray-500">Un lien pour choisir un nouveau mot de passe vous sera envoyé.</p>
+                <p className="mt-2 text-xs text-ink/60">Un lien pour choisir un nouveau mot de passe vous sera envoyé.</p>
               </div>
             ) : (
               <div>
-                <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="username" className="block text-sm font-medium text-ink mb-2">
                   Nom d&apos;utilisateur
                 </label>
                 <input
@@ -132,7 +132,7 @@ export default function UserAuth({ onLogin, onClose }: UserAuthProps) {
             {!isLogin && (
               <>
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="email" className="block text-sm font-medium text-ink mb-2">
                     Email
                   </label>
                   <input
@@ -147,7 +147,7 @@ export default function UserAuth({ onLogin, onClose }: UserAuthProps) {
                   />
                 </div>
                 <div>
-                  <label htmlFor="emailConfirm" className="block text-sm font-medium text-gray-700 mb-2">
+                  <label htmlFor="emailConfirm" className="block text-sm font-medium text-ink mb-2">
                     Confirmer l&apos;email
                   </label>
                   <input
@@ -166,7 +166,7 @@ export default function UserAuth({ onLogin, onClose }: UserAuthProps) {
 
             {!forgot && (
               <div>
-                <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="password" className="block text-sm font-medium text-ink mb-2">
                   Mot de passe
                 </label>
                 <input
@@ -184,7 +184,7 @@ export default function UserAuth({ onLogin, onClose }: UserAuthProps) {
                   <button
                     type="button"
                     onClick={() => { setForgot(true); setError(''); }}
-                    className="mt-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium transition-colors"
+                    className="mt-2 text-sm text-razzmatazz hover:text-razzmatazz font-medium transition-colors"
                   >
                     Mot de passe oublié ?
                   </button>
@@ -193,7 +193,7 @@ export default function UserAuth({ onLogin, onClose }: UserAuthProps) {
             )}
 
             {error && (
-              <div role="alert" className="px-4 py-3 rounded-xl text-sm text-center bg-red-100 border border-red-200 text-red-700">
+              <div role="alert" className="px-4 py-3 rounded-none text-sm text-center bg-red-100 border border-red-200 text-red-700">
                 {error}
               </div>
             )}
@@ -201,7 +201,7 @@ export default function UserAuth({ onLogin, onClose }: UserAuthProps) {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full inline-block bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 disabled:from-gray-400 disabled:to-gray-500 text-white py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl font-medium disabled:transform-none disabled:cursor-not-allowed"
+              className="w-full inline-block text-white py-3 px-6 rounded-none transition-all border-[3px] border-ink  font-medium disabled:transform-none disabled:cursor-not-allowed bg-razzmatazz hover:bg-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a] disabled:opacity-50"
             >
               {isLoading ? '⏳ ' : ''}
               {forgot ? 'Envoyer le lien' : isLogin ? 'Se connecter' : 'S\'inscrire'}
@@ -216,7 +216,7 @@ export default function UserAuth({ onLogin, onClose }: UserAuthProps) {
                 setError('');
                 setFormData(EMPTY);
               }}
-              className="text-indigo-600 hover:text-indigo-700 text-sm font-medium transition-colors"
+              className="text-razzmatazz hover:text-razzmatazz text-sm font-medium transition-colors"
             >
               {forgot
                 ? 'Retour à la connexion'
