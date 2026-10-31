@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Search, X } from 'lucide-react';
 
 interface SearchResult {
@@ -22,7 +22,6 @@ interface SearchBarProps {
 
 export default function SearchBar({ items, onItemSelect, placeholder = "Rechercher un article..." }: SearchBarProps) {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SearchResult[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(-1);
   const searchRef = useRef<HTMLDivElement>(null);
@@ -42,14 +41,10 @@ export default function SearchBar({ items, onItemSelect, placeholder = "Recherch
   }, []);
 
   // Recherche en temps réel
-  useEffect(() => {
-    if (query.trim().length === 0) {
-      setResults([]);
-      setIsOpen(false);
-      return;
-    }
+  const results = useMemo(() => {
+    if (query.trim().length === 0) return [];
 
-    const searchResults = items.filter(item => {
+    return items.filter(item => {
       const queryLower = query.toLowerCase();
       
       // Recherche au début du nom
@@ -91,11 +86,15 @@ export default function SearchBar({ items, onItemSelect, placeholder = "Recherch
       
       return false;
     }).slice(0, 8); // Limiter à 8 résultats
-
-    setResults(searchResults);
-    setIsOpen(searchResults.length > 0);
-    setSelectedIndex(-1);
   }, [query, items]);
+
+  // Chaque nouvelle recherche rouvre la liste (si elle a des résultats) et remet la sélection à zéro
+  const [prevResults, setPrevResults] = useState(results);
+  if (results !== prevResults) {
+    setPrevResults(results);
+    setIsOpen(results.length > 0);
+    setSelectedIndex(-1);
+  }
 
   // Navigation au clavier
   const handleKeyDown = (e: React.KeyboardEvent) => {

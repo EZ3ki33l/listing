@@ -12,6 +12,7 @@ import SearchBar from '@/components/SearchBar';
 import ImageCarousel from '@/components/ImageCarousel';
 import ThankYouModal from '@/components/ThankYouModal';
 import { useFeedback } from '@/components/Feedback';
+import { useStoredUser } from '@/lib/useStoredUser';
 
 interface Event {
   id: string;
@@ -73,7 +74,7 @@ function ListePageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const router = useRouter();
-  const [currentUser, setCurrentUser] = useState<{ id: string; username: string } | null>(null);
+  const currentUser = useStoredUser();
   const [showThankYouModal, setShowThankYouModal] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [newItem, setNewItem] = useState(EMPTY_ITEM);
@@ -83,52 +84,42 @@ function ListePageContent() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [searchQuery] = useState('');
 
-  const loadEventData = useCallback(async () => {
-    if (!eventId || !currentUser) return;
-    
-    try {
-      setIsLoading(true);
-      const [eventResult, categoriesResult] = await Promise.all([
-        getEvent(eventId),
-        getCategories()
-      ]);
+  // Chaînage en .then (et non async/await) : le lint refuse un setState atteint de façon synchrone depuis un effet
+  const fetchEventData = useCallback(() => {
+    if (!eventId || !currentUser) return Promise.resolve();
 
-      if (eventResult.success && eventResult.event) {
-        setEvent(eventResult.event);
-      } else {
-        notify('error', 'Erreur', eventResult.error || "Erreur lors du chargement de l'événement");
-      }
+    return Promise.all([getEvent(eventId), getCategories()])
+      .then(([eventResult, categoriesResult]) => {
+        if (eventResult.success && eventResult.event) {
+          setEvent(eventResult.event);
+        } else {
+          notify('error', 'Erreur', eventResult.error || "Erreur lors du chargement de l'événement");
+        }
 
-      if (categoriesResult.success && categoriesResult.categories) {
-        setCategories(categoriesResult.categories);
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des données:', error);
-      notify('error', 'Erreur', "Erreur lors du chargement de l'événement");
-    } finally {
-      setIsLoading(false);
-    }
+        if (categoriesResult.success && categoriesResult.categories) {
+          setCategories(categoriesResult.categories);
+        }
+      })
+      .catch(error => {
+        console.error('Erreur lors du chargement des données:', error);
+        notify('error', 'Erreur', "Erreur lors du chargement de l'événement");
+      })
+      .finally(() => setIsLoading(false));
   }, [eventId, currentUser, notify]);
 
-  useEffect(() => {
-    // Vérifier si l'utilisateur est connecté
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        setCurrentUser({ id: user.id, username: user.username });
-      } catch (error) {
-        console.error('Erreur lors de la lecture des données utilisateur:', error);
-      }
-    }
-  }, []);
+  // Rechargement après une modification : le loader de page repasse
+  const loadEventData = () => {
+    setIsLoading(true);
+    return fetchEventData();
+  };
 
   useEffect(() => {
     // Charger les données de l'événement seulement si l'utilisateur est connecté et qu'il y a un eventId
+    // (isLoading vaut déjà true au premier rendu)
     if (currentUser && eventId) {
-      loadEventData();
+      fetchEventData();
     }
-  }, [currentUser, eventId, loadEventData]);
+  }, [currentUser, eventId, fetchEventData]);
 
   // Vérifier si l'utilisateur actuel est le propriétaire de l'événement
   const isOwner = () => {
@@ -405,7 +396,7 @@ function ListePageContent() {
         >
           ← Retour
         </button>
-        <UserMenu userId={currentUser!.id} />
+        <UserMenu />
       </SiteHeader>
 
       <PageHero kicker={`Liste d'achats · Créée par ${event.owner.username}`} title={`🛍️ ${event.name}`}>

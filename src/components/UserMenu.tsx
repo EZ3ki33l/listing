@@ -5,35 +5,14 @@ import { useRouter } from 'next/navigation';
 import { User, LogOut, Settings } from 'lucide-react';
 import Link from 'next/link';
 import { logoutUser } from '@/lib/actions';
+import { useStoredUser } from '@/lib/useStoredUser';
 
-interface UserMenuProps {
-  userId: string;
-}
-
-interface UserData {
-  id: string;
-  username: string;
-  email?: string;
-  isAdmin: boolean;
-}
-
-export default function UserMenu({ userId }: UserMenuProps) {
-  const [user, setUser] = useState<UserData | null>(null);
+export default function UserMenu() {
+  // Le parent re-rend le menu quand l'utilisateur change : le localStorage est alors relu
+  const user = useStoredUser();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-
-  useEffect(() => {
-    // Récupérer les données utilisateur depuis localStorage
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (error) {
-        console.error('Erreur lors de la lecture des données utilisateur:', error);
-      }
-    }
-  }, [userId]);
 
   useEffect(() => {
     // Fermer le menu si on clique à l'extérieur

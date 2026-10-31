@@ -28,7 +28,7 @@ interface Event {
 export default function HomePage() {
   const { notify, confirm } = useFeedback();
   const [events, setEvents] = useState<Event[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [eventsLoaded, setEventsLoaded] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -64,32 +64,28 @@ export default function HomePage() {
     };
   }, []);
 
-  const loadEvents = useCallback(async () => {
-    try {
-      // Récupérer les événements de l'utilisateur connecté
-      const result = await getAllActiveEvents();
-      
-      if (result.success && result.events) {
-        setEvents(result.events);
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des événements:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [userId]);
+  // Chaînage en .then (et non async/await) : le lint refuse un setState atteint de façon synchrone depuis un effet
+  const loadEvents = useCallback(() => {
+    // Récupérer les événements de l'utilisateur connecté
+    return getAllActiveEvents()
+      .then(result => {
+        if (result.success && result.events) {
+          setEvents(result.events);
+        }
+      })
+      .catch(error => console.error('Erreur lors du chargement des événements:', error))
+      .finally(() => setEventsLoaded(true));
+  }, []);
 
   useEffect(() => {
-    // Attendre que l'initialisation soit terminée
-    if (!isInitializing) {
-      // Charger les listes d'achats seulement si l'utilisateur est connecté
-      if (userId !== null) {
-        loadEvents();
-      } else {
-        setIsLoading(false);
-      }
+    // Charger les listes d'achats seulement si l'utilisateur est connecté, une fois l'initialisation terminée
+    if (!isInitializing && userId !== null) {
+      loadEvents();
     }
   }, [userId, isInitializing, loadEvents]);
+
+  // Sans utilisateur connecté, il n'y a rien à charger
+  const isLoading = userId !== null && !eventsLoaded;
 
   const handleLeaveEvent = async (eventId: string, eventName: string) => {
     const ok = await confirm({
@@ -236,7 +232,7 @@ export default function HomePage() {
     <div className="min-h-dvh flex flex-col bg-paper">
       <SiteHeader>
         {userId ? (
-          <UserMenu userId={userId} />
+          <UserMenu />
         ) : (
           <button onClick={() => setShowAuthModal(true)} className="btn">
             Se connecter

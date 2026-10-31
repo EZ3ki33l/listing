@@ -1,6 +1,7 @@
-import type { NextConfig } from "next";
-
-const nextConfig: NextConfig = {
+// .mjs et non .ts : Next charge un next.config.ts via module.register(), déprécié (DEP0205) sur Node 26.
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  output: 'standalone',
   poweredByHeader: false,
   async headers() {
     return [

@@ -20,6 +20,17 @@ interface AdminData {
   username: string;
 }
 
+async function fetchCategories(): Promise<Category[] | null> {
+  try {
+    const result = await getCategoriesWithItemCount();
+    if (!result.success || !result.categories) return null;
+    return result.categories.map(cat => ({ ...cat, icon: cat.icon || undefined }));
+  } catch (error) {
+    console.error('Erreur lors du chargement des catégories:', error);
+    return null;
+  }
+}
+
 export default function AdminPage() {
   const { notify, confirm } = useFeedback();
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -49,24 +60,17 @@ export default function AdminPage() {
   }, []);
 
   const loadCategories = useCallback(async () => {
-    try {
-      const result = await getCategoriesWithItemCount();
-      if (result.success && result.categories) {
-        setCategories(result.categories.map(cat => ({
-          ...cat,
-          icon: cat.icon || undefined
-        })));
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des catégories:', error);
-    }
+    const list = await fetchCategories();
+    if (list) setCategories(list);
   }, []);
 
   useEffect(() => {
     if (isLoggedIn) {
-      loadCategories();
+      fetchCategories().then(list => {
+        if (list) setCategories(list);
+      });
     }
-  }, [isLoggedIn, loadCategories]);
+  }, [isLoggedIn]);
 
 
 

@@ -72,7 +72,7 @@ export default function UserPage() {
     <div className="min-h-dvh bg-paper">
       <SiteHeader>
         <Link href="/" className="btn btn-pink">Accueil</Link>
-        <UserMenu userId={user.id} />
+        <UserMenu />
       </SiteHeader>
 
       <PageHero kicker="Espace personnel" title={user.username}>

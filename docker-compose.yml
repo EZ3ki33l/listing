@@ -1,0 +1,23 @@
+services:
+  app:
+    container_name: listing-app
+    image: ghcr.io/ez3ki33l/listing:latest
+    restart: unless-stopped
+    stop_grace_period: 30s
+    # Secrets (DATABASE_URL, NEON_AUTH_*, GEMINI_API_KEY...) : fichier .env.production posé sur le serveur, jamais dans git.
+    env_file: .env.production
+    ports:
+      - "127.0.0.1:3004:3000"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:3000/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    networks:
+      - proxy
+
+networks:
+  proxy:
+    name: docker_proxy
+    external: true
