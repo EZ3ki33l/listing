@@ -21,13 +21,16 @@ export default function PhotoModal({ isOpen, onClose, photos, initialIndex = 0 }
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [imageError, setImageError] = useState(false);
 
-  // Réinitialiser l'index quand la modal s'ouvre
-  useEffect(() => {
-    if (isOpen) {
-      setCurrentIndex(initialIndex);
+  // Réinitialiser l'index quand la modal s'ouvre (ou que l'index demandé change pendant qu'elle est ouverte)
+  const openIndex = isOpen ? initialIndex : null;
+  const [prevOpenIndex, setPrevOpenIndex] = useState(openIndex);
+  if (openIndex !== prevOpenIndex) {
+    setPrevOpenIndex(openIndex);
+    if (openIndex !== null) {
+      setCurrentIndex(openIndex);
       setImageError(false);
     }
-  }, [isOpen, initialIndex]);
+  }
 
   const goToPrevious = useCallback(() => {
     setCurrentIndex((prev) => (prev > 0 ? prev - 1 : photos.length - 1));

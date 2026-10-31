@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { Bell, Check, AlertTriangle, Info, CheckCircle, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { getUserNotifications, markNotificationAsRead, deleteNotification } from '@/lib/actions';
 
@@ -18,28 +18,28 @@ interface UserNotificationsProps {
   userId: string;
 }
 
+async function fetchNotifications() {
+  try {
+    const result = await getUserNotifications();
+    return result.success && result.notifications ? result.notifications : null;
+  } catch (error) {
+    console.error('Erreur lors du chargement des notifications:', error);
+    return null;
+  }
+}
+
 export default function UserNotifications({ userId }: UserNotificationsProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAll, setShowAll] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  const loadNotifications = useCallback(async () => {
-    try {
-      const result = await getUserNotifications();
-      if (result.success && result.notifications) {
-        setNotifications(result.notifications);
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des notifications:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [userId]);
-
   useEffect(() => {
-    loadNotifications();
-  }, [userId, loadNotifications]);
+    fetchNotifications().then(list => {
+      if (list) setNotifications(list);
+      setIsLoading(false);
+    });
+  }, [userId]);
 
   const handleMarkAsRead = async (notificationId: string) => {
     try {

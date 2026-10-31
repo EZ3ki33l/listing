@@ -59,18 +59,11 @@ export default function EventCountdown({
     return { days, hours, minutes };
   }, [finalTargetDate, finalHasTargetDate]);
 
-  // Initialiser le state avec le calcul initial
-  useEffect(() => {
-    if (finalTargetDate && finalHasTargetDate) {
-      const initialTimeLeft = calculateTimeLeft();
-      setTimeLeft(initialTimeLeft);
-    }
-  }, [finalTargetDate, finalHasTargetDate, calculateTimeLeft]);
-
-  // Mettre à jour toutes les secondes
+  // Premier calcul immédiat, puis mise à jour toutes les secondes
   useEffect(() => {
     if (!finalTargetDate || !finalHasTargetDate) return;
 
+    const first = setTimeout(() => setTimeLeft(calculateTimeLeft()), 0);
     const timer = setInterval(() => {
       const currentTimeLeft = calculateTimeLeft();
       setTimeLeft(currentTimeLeft);
@@ -81,7 +74,10 @@ export default function EventCountdown({
       }
     }, 1000);
 
-    return () => clearInterval(timer);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
   }, [finalTargetDate, finalHasTargetDate, onComplete, calculateTimeLeft]);
 
   const getEventConfig = (type: string) => {

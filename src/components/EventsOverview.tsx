@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { getAllActiveEvents } from '@/lib/actions';
+import { useStoredUser } from '@/lib/useStoredUser';
 import { Calendar, Clock } from 'lucide-react';
 import Link from 'next/link';
 
@@ -31,20 +32,7 @@ const getEventTypeInfo = (eventType: string) => {
 export default function EventsOverview() {
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [userId, setUserId] = useState<string | null>(null);
-
-  useEffect(() => {
-    // Vérifier si l'utilisateur est connecté
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      try {
-        const user = JSON.parse(storedUser);
-        setUserId(user.id);
-      } catch (error) {
-        console.error('Erreur lors de la lecture des données utilisateur:', error);
-      }
-    }
-  }, []);
+  const userId = useStoredUser()?.id ?? null;
 
   useEffect(() => {
     const loadEvents = async () => {

@@ -54,7 +54,6 @@ export default function UserEvents({ userId }: UserEventsProps) {
   const { notify } = useFeedback();
   const [events, setEvents] = useState<Event[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isInitializing, setIsInitializing] = useState(true);
   const [showShareForm, setShowShareForm] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
@@ -83,29 +82,20 @@ export default function UserEvents({ userId }: UserEventsProps) {
     hidePurchasesFromOwner: true
   });
 
-  const loadEvents = useCallback(async () => {
-    try {
-      const result = await getUserEvents();
-      if (result.success && result.events) {
-        setEvents(result.events);
-      } else {
+  // Chaînage en .then (et non async/await) : le lint refuse un setState atteint de façon synchrone depuis un effet
+  const loadEvents = useCallback(() => {
+    return getUserEvents()
+      .then(result => setEvents(result.success && result.events ? result.events : []))
+      .catch(error => {
+        console.error('Erreur lors du chargement des événements:', error);
         setEvents([]);
-      }
-    } catch (error) {
-      console.error('Erreur lors du chargement des événements:', error);
-      setEvents([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [userId]);
+      })
+      .finally(() => setIsLoading(false));
+  }, []);
 
   useEffect(() => {
-    // Marquer l'initialisation comme terminée quand userId change
     if (userId) {
-      setIsInitializing(false);
       loadEvents();
-    } else {
-      setIsInitializing(false);
     }
   }, [userId, loadEvents]);
 
@@ -296,16 +286,6 @@ export default function UserEvents({ userId }: UserEventsProps) {
       notify('error', 'Erreur', "Erreur lors de la réactivation de l'événement");
     }
   };
-
-  // Afficher un loader pendant l'initialisation pour éviter le clipping
-  if (isInitializing) {
-    return (
-      <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-ink mx-auto"></div>
-        <p className="mt-4 text-ink">Initialisation...</p>
-      </div>
-    );
-  }
 
   if (isLoading) {
     return (

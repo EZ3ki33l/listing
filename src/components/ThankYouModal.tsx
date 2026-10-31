@@ -11,43 +11,11 @@ interface ThankYouModalProps {
 export default function ThankYouModal({ isOpen, onClose }: ThankYouModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [playCount, setPlayCount] = useState(0);
-  const [videoSrc, setVideoSrc] = useState('/catB.mp4');
 
-  // Détection du thème et choix de la vidéo
-  useEffect(() => {
-    if (isOpen) {
-      // Détecter le thème en analysant uniquement les classes CSS (pas le thème système)
-      const isDarkTheme = document.documentElement.classList.contains('dark') || 
-                         document.body.classList.contains('dark');
-      
-      // Détection alternative : analyser la couleur de fond de la modal
-      const modalElement = document.querySelector('.bg-white');
-      const computedStyle = modalElement ? window.getComputedStyle(modalElement) : null;
-      const backgroundColor = computedStyle ? computedStyle.backgroundColor : '';
-      
-      // Si la modal a un fond sombre, utiliser catN.mp4
-      const isModalDark = backgroundColor.includes('rgb(0, 0, 0)') || 
-                         backgroundColor.includes('rgb(17, 24, 39)') ||
-                         backgroundColor.includes('rgb(31, 41, 55)');
-      
-      // Debug: afficher les valeurs pour comprendre le problème
-      console.log('Debug thème:', {
-        isDarkTheme,
-        isModalDark,
-        backgroundColor,
-        selectedVideo: (isDarkTheme || isModalDark) ? '/catN.mp4' : '/catB.mp4'
-      });
-      
-      // Logique simplifiée : si on détecte un thème sombre, utiliser catN.mp4, sinon catB.mp4
-      if (isDarkTheme) {
-        console.log('Thème sombre détecté, utilisation de catN.mp4');
-        setVideoSrc('/catN.mp4');
-      } else {
-        console.log('Thème clair détecté, utilisation de catB.mp4');
-        setVideoSrc('/catB.mp4');
-      }
-    }
-  }, [isOpen]);
+  // Thème sombre (classe CSS) : vidéo noire ; lu seulement une fois la modal ouverte, donc jamais au rendu serveur
+  const videoSrc = isOpen && (document.documentElement.classList.contains('dark') || document.body.classList.contains('dark'))
+    ? '/catN.mp4'
+    : '/catB.mp4';
 
   // Gestion de la touche Escape
   useEffect(() => {
