@@ -122,7 +122,7 @@ Réponds uniquement par un objet JSON : {"name": string, "description": string, 
 
 // shortcut: pas de recherche web de secours (google_search est payant sur le palier gratuit de 3.x), un site illisible échoue et l'utilisateur remplit à la main ; le modèle peut être retiré par Google, changer GEMINI_MODEL
 // Modèles gratuits essayés dans l'ordre quand l'un est surchargé (503), limité (429) ou retiré (404)
-const MODELS = [process.env.GEMINI_MODEL || 'gemini-3.8-flash', 'gemini-3.6-flash', 'gemini-3.5-flash-lite'];
+const MODELS = [process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite', 'gemini-3.8-flash', 'gemini-3.6-flash']; // le léger d'abord : le plus rapide et le moins surchargé
 
 const UNREADABLE = 'Page illisible';
 
@@ -139,7 +139,7 @@ async function describeProduct(url: string) {
         systemInstruction: { parts: [{ text: SYSTEM }] },
         contents: [{ role: 'user', parts: [{ text: url }] }],
         tools: [{ url_context: {} }],
-        generationConfig: { thinkingConfig: { thinkingLevel: 'minimal' } }, // extraction simple : la réflexion par défaut ajoute plusieurs secondes
+        generationConfig: { thinkingConfig: { thinkingLevel: 'low' } }, // extraction simple : la réflexion par défaut ajoute plusieurs secondes
       }),
     }).catch(() => new Response(null, { status: 503 })); // délai dépassé : on passe au modèle suivant
     if (![404, 429, 503].includes(res.status)) break;
