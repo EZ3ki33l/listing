@@ -668,6 +668,44 @@ export async function createShoppingItem(data: CreateShoppingItemData) {
   }
 }
 
+// Remplace les champs et les photos de l'article ; l'état d'achat n'est pas touché
+export async function updateShoppingItem(itemId: string, data: Omit<CreateShoppingItemData, 'eventId'>) {
+  try {
+    const invalid = validateItemInput({ ...data, eventId: itemId });
+    if (invalid) return { success: false, error: invalid };
+    const me = await getSessionUser();
+    if (!me) return NO_AUTH;
+
+    const item = await db.orm.public.ShoppingItem.where({ id: itemId }).select('eventId').first();
+    if (!item || !(await eventAccess(item.eventId, me.id))?.canEdit) return FORBIDDEN;
+
+    await db.transaction(async (tx) => {
+      await tx.orm.public.ShoppingItem.where({ id: itemId }).updateAndCount({
+        name: data.name,
+        description: data.description ?? null,
+        price: data.price ?? null,
+        purchaseUrl: data.purchaseUrl ?? null,
+        categoryId: data.categoryId ?? null,
+      });
+      await tx.orm.public.ShoppingItemPhoto.where({ itemId }).deleteAndCount();
+      for (const [index, photo] of data.photos.entries()) {
+        await tx.orm.public.ShoppingItemPhoto.create({
+          itemId,
+          imageUrl: photo.imageUrl,
+          altText: photo.altText ?? null,
+          order: index + 1,
+        });
+      }
+    });
+
+    revalidatePath('/liste');
+    return { success: true };
+  } catch (error) {
+    console.error('Erreur lors de la modification de l\'article:', error);
+    return { success: false, error: 'Erreur lors de la modification de l\'article' };
+  }
+}
+
 // Pré-remplissage d'un article depuis un lien : ne crée rien, le formulaire reste à valider par l'utilisateur
 export async function importProductFromUrl(eventId: string, url: string) {
   try {
