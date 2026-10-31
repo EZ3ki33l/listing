@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.github
+.env
+.env.*
+!.env.example
+*.md
+.agents
+.claude
+.cursor
+.playwright-mcp
+coverage
+*.tsbuildinfo
+next-env.d.ts
