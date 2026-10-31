@@ -37,6 +37,7 @@ jobs:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
     steps:
       - uses: actions/checkout@v4
       - name: Nom d'image (GHCR exige des minuscules)
@@ -65,7 +66,8 @@ jobs:
           install -m 700 -d ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
           echo "$KNOWN_HOSTS" > ~/.ssh/known_hosts
-          SSH="ssh -i ~/.ssh/deploy_key $DEPLOY_USER@$DEPLOY_HOST"
-          scp -i ~/.ssh/deploy_key docker-compose.yml "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/docker-compose.yml"
+          PORT="${DEPLOY_PORT:-22}"
+          SSH="ssh -p $PORT -i ~/.ssh/deploy_key $DEPLOY_USER@$DEPLOY_HOST"
+          scp -P "$PORT" -i ~/.ssh/deploy_key docker-compose.yml "$DEPLOY_USER@$DEPLOY_HOST:$DEPLOY_PATH/docker-compose.yml"
           echo "$GHCR_TOKEN" | $SSH "docker login ghcr.io -u '$GITHUB_ACTOR' --password-stdin"
           $SSH "cd '$DEPLOY_PATH' && docker compose pull && docker compose up -d --remove-orphans && docker image prune -f"
