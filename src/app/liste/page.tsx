@@ -5,7 +5,7 @@ import { PageLoader, SiteHeader, PageHero } from '@/components/PageChrome';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Slider, { revealSlide } from '@/components/Slider';
 import UserMenu from '@/components/UserMenu';
-import { getEvent, createShoppingItem, importProductFromUrl, updateItemStatus, deleteShoppingItem, getCategories } from '@/lib/actions';
+import { getEvent, createShoppingItem, updateShoppingItem, importProductFromUrl, updateItemStatus, deleteShoppingItem, getCategories } from '@/lib/actions';
 import Link from 'next/link';
 import CategoryFilter from '@/components/CategoryFilter';
 import SearchBar from '@/components/SearchBar';
@@ -61,6 +61,8 @@ interface Category {
   icon: string | null;
 }
 
+const EMPTY_ITEM = { name: '', description: '', price: '', purchaseUrl: '', categoryId: '', photos: [{ imageUrl: '', altText: '' }] };
+
 function ListePageContent() {
   const searchParams = useSearchParams();
   const eventId = searchParams.get('event');
@@ -74,14 +76,8 @@ function ListePageContent() {
   const [currentUser, setCurrentUser] = useState<{ id: string; username: string } | null>(null);
   const [showThankYouModal, setShowThankYouModal] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
-  const [newItem, setNewItem] = useState({
-    name: '',
-    description: '',
-    price: '',
-    purchaseUrl: '',
-    categoryId: '',
-    photos: [{ imageUrl: '', altText: '' }]
-  });
+  const [newItem, setNewItem] = useState(EMPTY_ITEM);
+  const [editingId, setEditingId] = useState<string | null>(null); // article en cours de modification (formulaire partagé avec l'ajout)
   
   // États pour le filtrage et la recherche
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -166,20 +162,19 @@ function ListePageContent() {
     setIsLoading(true);
     
     try {
-      const result = await createShoppingItem({
-        eventId,
+      const payload = {
         name: newItem.name,
         description: newItem.description || undefined,
         price: newItem.price ? parseFloat(newItem.price) : undefined,
         purchaseUrl: newItem.purchaseUrl || undefined,
         categoryId: newItem.categoryId || undefined,
         photos: newItem.photos.filter(photo => photo.imageUrl.trim())
-      });
+      };
+      const result = editingId ? await updateShoppingItem(editingId, payload) : await createShoppingItem({ eventId, ...payload });
 
       if (result.success) {
-        notify('success', 'Article ajouté', 'L\'article a été ajouté avec succès.');
-        setNewItem({ name: '', description: '', price: '', purchaseUrl: '', categoryId: '', photos: [{ imageUrl: '', altText: '' }] });
-        setShowAddForm(false);
+        notify('success', editingId ? 'Article modifié' : 'Article ajouté', editingId ? 'Les modifications ont été enregistrées.' : 'L\'article a été ajouté avec succès.');
+        closeForm();
         await loadEventData();
       } else {
         notify('error', 'Erreur', result.error);
@@ -190,6 +185,26 @@ function ListePageContent() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const closeForm = () => {
+    setNewItem(EMPTY_ITEM);
+    setEditingId(null);
+    setShowAddForm(false);
+  };
+
+  const startEdit = (item: ShoppingItem) => {
+    setNewItem({
+      name: item.name,
+      description: item.description ?? '',
+      price: item.price != null ? String(item.price) : '',
+      purchaseUrl: item.purchaseUrl ?? '',
+      categoryId: item.category?.id ?? '',
+      photos: item.photos.length ? item.photos.map(p => ({ imageUrl: p.imageUrl, altText: p.altText ?? '' })) : EMPTY_ITEM.photos,
+    });
+    setEditingId(item.id);
+    setShowAddForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleImportItem = async () => {
@@ -454,7 +469,7 @@ function ListePageContent() {
         {canAddItems() && (
           <div className="text-center mb-8">
             <button
-              onClick={() => setShowAddForm(!showAddForm)}
+              onClick={() => (showAddForm ? closeForm() : setShowAddForm(true))}
               className="inline-block text-white px-8 py-4 rounded-none transition-all border-[3px] border-ink  font-medium text-lg bg-razzmatazz hover:bg-ink shadow-[4px_4px_0_#0a0a0a] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_#0a0a0a]"
             >
               ➕ Ajouter un article
@@ -477,7 +492,7 @@ function ListePageContent() {
         {/* Formulaire d'ajout - Seulement pour le propriétaire */}
         {showAddForm && canAddItems() && (
           <div className="bg-white rounded-none border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] p-6 mb-8">
-            <h3 className="text-xl font-semibold text-ink mb-4">✨ Ajouter un nouvel article</h3>
+            <h3 className="text-xl font-semibold text-ink mb-4">{editingId ? '✏️ Modifier l\'article' : '✨ Ajouter un nouvel article'}</h3>
             <form onSubmit={handleAddItem} className="space-y-4">
               <div className="flex flex-col md:flex-row gap-3">
                 <input
@@ -584,11 +599,11 @@ function ListePageContent() {
                   disabled={isLoading}
                   className="btn disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? '⏳ Ajout...' : '✨ Ajouter l\'article'}
+                  {isLoading ? '⏳ Enregistrement...' : editingId ? '💾 Enregistrer' : '✨ Ajouter l\'article'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowAddForm(false)}
+                  onClick={closeForm}
                   className="btn"
                 >
                   Annuler
@@ -681,7 +696,16 @@ function ListePageContent() {
                         </a>
                       )}
                       
-                      {/* Bouton Supprimer */}
+                      {/* Boutons Modifier et Supprimer */}
+                      {canDeleteItems() && (
+                        <button
+                          onClick={() => startEdit(item)}
+                          className="btn"
+                          aria-label="Modifier l'article"
+                        >
+                          ✏️
+                        </button>
+                      )}
                       {canDeleteItems() && (
                         <button
                           onClick={() => handleDeleteItem(item.id)}
@@ -779,7 +803,16 @@ function ListePageContent() {
                         </button>
                       )}
                       
-                      {/* Bouton Supprimer */}
+                      {/* Boutons Modifier et Supprimer */}
+                      {canDeleteItems() && (
+                        <button
+                          onClick={() => startEdit(item)}
+                          className="btn"
+                          aria-label="Modifier l'article"
+                        >
+                          ✏️
+                        </button>
+                      )}
                       {canDeleteItems() && (
                         <button
                           onClick={() => handleDeleteItem(item.id)}
