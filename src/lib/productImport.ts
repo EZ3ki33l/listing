@@ -158,28 +158,49 @@ async function describeProduct(url: string) {
 }
 
 // Site qui bloque les robots : on cherche le produit d'après les mots de l'URL et on prend les premiers résultats d'autres sites
-// shortcut: scraping de la page HTML de DuckDuckGo (pas d'API de recherche gratuite), à remplacer si leur format change
+// Tavily (clé gratuite, 1000 recherches/mois) si TAVILY_API_KEY est définie ; sinon scraping de la page HTML de DuckDuckGo.
+// shortcut: DuckDuckGo refuse souvent les IP d'hébergeurs (Vercel) et son format peut changer, définir TAVILY_API_KEY en production
 async function searchPages(url: string): Promise<string[]> {
   const { pathname, hostname } = new URL(url);
   const slug = pathname.split('/').sort((a, b) => b.length - a.length)[0];
   const q = decodeURIComponent(slug).replace(/[-_+.]+/g, ' ').trim();
   if (!q) return [];
-  const res = await fetch('https://html.duckduckgo.com/html/', {
-    method: 'POST',
-    body: new URLSearchParams({ q }),
-    headers: { 'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) Firefox/128.0' },
-    signal: AbortSignal.timeout(8000),
-  });
-  const html = await res.text();
-  const links = [...html.matchAll(/result__a[^>]*href="([^"]+)"/g)].flatMap((m) => {
+  const tavilyKey = process.env.TAVILY_API_KEY;
+  let hrefs: string[];
+  if (tavilyKey) {
+    const res = await fetch('https://api.tavily.com/search', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${tavilyKey}` },
+      body: JSON.stringify({ query: q, max_results: 8 }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) throw new Error(`Tavily ${res.status}`);
+    hrefs = ((await res.json()) as { results?: { url?: string }[] }).results?.flatMap((r) => (r.url ? [r.url] : [])) ?? [];
+  } else {
+    const res = await fetch('https://html.duckduckgo.com/html/', {
+      method: 'POST',
+      body: new URLSearchParams({ q }),
+      headers: { 'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) Firefox/128.0' },
+      signal: AbortSignal.timeout(8000),
+    });
+    hrefs = [...(await res.text()).matchAll(/result__a[^>]*href="([^"]+)"/g)].flatMap((m) => {
+      try {
+        const href = new URL(decodeAttr(m[1]), 'https://duckduckgo.com');
+        return [href.searchParams.get('uddg') ?? href.href];
+      } catch {
+        return [];
+      }
+    });
+  }
+  const links = hrefs.flatMap((h) => {
     try {
-      const href = new URL(decodeAttr(m[1]), 'https://duckduckgo.com');
-      const target = new URL(href.searchParams.get('uddg') ?? href.href);
+      const target = new URL(h);
       return target.protocol === 'https:' && target.hostname !== hostname ? [target.href] : [];
     } catch {
       return [];
     }
   });
+  console.warn(`Recherche de secours (${tavilyKey ? 'Tavily' : 'DuckDuckGo'}) : ${links.length} résultat(s) pour « ${q} »`);
   return [...new Set(links)].slice(0, 4);
 }
 
@@ -193,7 +214,7 @@ export async function importProduct(url: string): Promise<ImportedProduct> {
   } catch (error) {
     if ((error as Error).message !== UNREADABLE) throw error;
     // Les pages de secours sont lues en parallèle ; la page d'origine bloque les robots, ses images seraient un logo générique
-    const found = (await searchPages(url).catch(() => [])).slice(0, 2); // 2 seulement : chaque lecture consomme le quota gratuit
+    const found = (await searchPages(url).catch((e) => { console.error('Recherche de secours en échec:', e); return []; })).slice(0, 2); // 2 seulement : chaque lecture consomme le quota gratuit
     [d, images] = await Promise.all([
       Promise.any(found.map(describeProduct)).catch(() => { throw error; }),
       collectImages(found).catch(() => []),
