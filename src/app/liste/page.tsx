@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, Suspense } from 'react';
 import { PageLoader, SiteHeader, PageHero } from '@/components/PageChrome';
 import { useRouter, useSearchParams } from 'next/navigation';
-import Slider, { revealSlide } from '@/components/Slider';
+import Slider, { revealSlide, loopSlides } from '@/components/Slider';
 import UserMenu from '@/components/UserMenu';
 import { getEvent, createShoppingItem, updateShoppingItem, importProductFromUrl, updateItemStatus, deleteShoppingItem, getCategories } from '@/lib/actions';
 import Link from 'next/link';
@@ -617,9 +617,9 @@ function ListePageContent() {
             </div>
           ) : (
             <Slider threeUp label="Articles à acheter">
-              {pendingItems.map((item, index) => (
-                <div key={item.id}>
-                <div id={`item-${item.id}`} className="border-ink p-4 border-[3px] shadow-[5px_5px_0_#0a0a0a] flex flex-col h-full bg-paper">
+              {loopSlides(pendingItems).map(({ item, copy }, index) => (
+                <div key={copy ? `${item.id}-copy` : item.id}>
+                <div id={copy ? undefined : `item-${item.id}`} className="border-ink p-4 border-[3px] shadow-[5px_5px_0_#0a0a0a] flex flex-col h-full bg-paper">
                   {/* Photos */}
                   {item.photos && item.photos.length > 0 && (
                     <div className="mb-4">
@@ -653,22 +653,24 @@ function ListePageContent() {
                       <p className="text-sm text-ink">{item.description}</p>
                     )}
                     
-                    {item.price && (
-                      <p className="text-green-600 font-semibold text-sm">💰 {item.price}€</p>
-                    )}
-                    
-                    {/* Spacer pour pousser les boutons en bas */}
+                    {/* Spacer pour pousser prix + boutons en bas (position identique d'une carte à l'autre) */}
                     <div className="flex-grow"></div>
-                    
+
+                    {item.price && (
+                      <p className="self-end text-xl font-bold text-ink underline decoration-malachite decoration-[3px] underline-offset-4">{item.price} €</p>
+                    )}
+
                     {/* Boutons d'action */}
                     <div className="flex gap-2 pt-2 mt-auto">
                       {/* Bouton Acheté */}
                       {!event.purchasesHidden && (
                         <button
                           onClick={() => handleToggleItem(item.id, true)}
-                          className="btn flex-1"
+                          className="btn btn-icon"
+                          aria-label="Marquer comme acheté"
+                          title="Marquer comme acheté"
                         >
-                          ✅ Acheté
+                          ✅
                         </button>
                       )}
                       
@@ -678,12 +680,11 @@ function ListePageContent() {
                           href={item.purchaseUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="btn flex-1"
+                          className="btn btn-icon"
+                          aria-label="Acheter : ouvre le site du produit"
+                          title="Acheter (ouvre le site du produit)"
                         >
-                          🛒 Acheter
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
+                          🛒
                         </a>
                       )}
                       
@@ -691,8 +692,9 @@ function ListePageContent() {
                       {canDeleteItems() && (
                         <button
                           onClick={() => startEdit(item)}
-                          className="btn"
+                          className="btn btn-icon"
                           aria-label="Modifier l'article"
+                          title="Modifier l'article"
                         >
                           ✏️
                         </button>
@@ -700,7 +702,9 @@ function ListePageContent() {
                       {canDeleteItems() && (
                         <button
                           onClick={() => handleDeleteItem(item.id)}
-                          className="btn btn-pink"
+                          className="btn btn-icon btn-pink"
+                          aria-label="Supprimer l'article"
+                          title="Supprimer l'article"
                         >
                           🗑️
                         </button>
@@ -722,9 +726,9 @@ function ListePageContent() {
             </h2>
             
             <Slider threeUp label="Articles achetés">
-              {purchasedItems.map((item, index) => (
-                <div key={item.id}>
-                <div id={`item-${item.id}`} className="border-green-200 p-4 border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] flex flex-col h-full bg-paper">
+              {loopSlides(purchasedItems).map(({ item, copy }, index) => (
+                <div key={copy ? `${item.id}-copy` : item.id}>
+                <div id={copy ? undefined : `item-${item.id}`} className="border-green-200 p-4 border-[3px] border-ink shadow-[5px_5px_0_#0a0a0a] flex flex-col h-full bg-paper">
                   {/* Photos */}
                   {item.photos && item.photos.length > 0 && (
                     <div className="mb-4">
@@ -775,12 +779,11 @@ function ListePageContent() {
                           href={item.purchaseUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="btn flex-1"
+                          className="btn btn-icon"
+                          aria-label="Acheter : ouvre le site du produit"
+                          title="Acheter (ouvre le site du produit)"
                         >
-                          🛒 Acheter
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                          </svg>
+                          🛒
                         </a>
                       )}
                       
@@ -788,9 +791,11 @@ function ListePageContent() {
                       {!event.purchasesHidden && (
                         <button
                           onClick={() => handleToggleItem(item.id, false)}
-                          className="flex-1 bg-heliotrope !text-ink hover:bg-heliotrope text-white px-3 py-2 rounded-none text-sm font-medium transition-colors"
+                          className="btn btn-icon btn-heliotrope"
+                          aria-label="Annuler l'achat"
+                          title="Annuler l'achat"
                         >
-                          🔄 Annuler
+                          🔄
                         </button>
                       )}
                       
@@ -798,8 +803,9 @@ function ListePageContent() {
                       {canDeleteItems() && (
                         <button
                           onClick={() => startEdit(item)}
-                          className="btn"
+                          className="btn btn-icon"
                           aria-label="Modifier l'article"
+                          title="Modifier l'article"
                         >
                           ✏️
                         </button>
@@ -807,7 +813,9 @@ function ListePageContent() {
                       {canDeleteItems() && (
                         <button
                           onClick={() => handleDeleteItem(item.id)}
-                          className="btn btn-pink"
+                          className="btn btn-icon btn-pink"
+                          aria-label="Supprimer l'article"
+                          title="Supprimer l'article"
                         >
                           🗑️
                         </button>

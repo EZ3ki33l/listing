@@ -101,6 +101,24 @@ body {
   box-shadow: 2px 2px 0 var(--ink);
 }
 
+/* Bouton réduit à un pictogramme : les boutons d'une rangée se partagent sa largeur sans déborder */
+.btn-icon {
+  flex: 1;
+  min-width: 0;
+  padding-inline: 0;
+}
+
+.btn-heliotrope {
+  color: var(--ink);
+  background: var(--heliotrope);
+  box-shadow: 5px 5px 0 var(--ink);
+}
+
+.btn-heliotrope:hover,
+.btn-heliotrope:focus-visible {
+  box-shadow: 2px 2px 0 var(--ink);
+}
+
 /* Libellé technique en mono capitales */
 .label {
   display: inline-block;
